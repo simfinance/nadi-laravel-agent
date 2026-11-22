@@ -1,0 +1,59 @@
+{
+    "name": "nadi/laravel-agent",
+    "description": "Private monitoring bridge and managed installer for NADI Agent.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "ext-json": "*",
+        "ext-sodium": "*",
+        "illuminate/console": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/contracts": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/http": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/routing": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/support": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "symfony/process": "^6.0 || ^7.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0 || ^9.0 || ^10.0 || ^11.0",
+        "phpunit/phpunit": "^10.0 || ^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Nadi\\LaravelAgent\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Nadi\\LaravelAgent\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Nadi\\LaravelAgent\\NadiAgentServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "@php vendor/bin/phpunit tests --testdox",
+        "lint": "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "archive": {
+        "exclude": [
+            "/source/**",
+            "/bin/**",
+            "/tests/**",
+            "/scripts/**",
+            "/docs/**",
+            "/.github/**",
+            "/systemd/**",
+            "/INSTALL-SIMPIAV2.md",
+            "/RELEASE-NOTES*.md",
+            "/REVIEW-*.md",
+            "/BINARIES-SHA256SUMS.txt"
+        ]
+    }
+}

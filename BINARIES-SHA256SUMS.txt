@@ -1,0 +1,2 @@
+1eeb2946e3c7109cbfb2b41aa2c5ef7219e9bc006461e4674d1c6eaea604162c  bin/linux-amd64/nadi-agent
+e13abf92acab374e44254bdb77230e0639df31efc81dc5ff12ae1e13227bd125  bin/linux-arm64/nadi-agent
