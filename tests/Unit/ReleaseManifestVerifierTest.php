@@ -26,7 +26,8 @@ class ReleaseManifestVerifierTest extends TestCase
 
         self::assertSame('nadi-agent', $manifest['product']);
         self::assertSame(self::KEY_ID, $manifest['key_id']);
-        self::assertSame('0.7.5', $manifest['version']);
+        self::assertSame('0.7.5-dev', $manifest['version']);
+        self::assertSame(1, $manifest['protocol_version']);
     }
 
     public function test_it_rejects_a_manifest_that_was_modified_after_signing(): void
@@ -93,8 +94,8 @@ class ReleaseManifestVerifierTest extends TestCase
             'schema_version' => 1,
             'product' => 'nadi-agent',
             'key_id' => self::KEY_ID,
-            'version' => '0.7.5',
-            'protocol_version' => '1',
+            'version' => '0.7.5-dev',
+            'protocol_version' => 1,
             'released_at' => '2026-11-22T00:00:00Z',
             'artifacts' => [
                 [

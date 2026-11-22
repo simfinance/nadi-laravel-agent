@@ -2,6 +2,8 @@
 
 namespace Nadi\LaravelAgent\Security;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use JsonException;
 use RuntimeException;
 
@@ -60,16 +62,13 @@ class ReleaseManifestVerifier
             throw new RuntimeException('Downloaded Agent artifact is missing or unreadable.');
         }
 
-        if (! preg_match('/^[a-f0-9]{64}$/i', $expectedSha256)) {
+        if (! preg_match('/^[a-f0-9]{64}$/D', $expectedSha256)) {
             throw new RuntimeException('Expected SHA-256 digest is malformed.');
         }
 
         $actualSha256 = hash_file('sha256', $filePath);
 
-        if (! is_string($actualSha256) || ! hash_equals(
-            strtolower($expectedSha256),
-            strtolower($actualSha256)
-        )) {
+        if (! is_string($actualSha256) || ! hash_equals($expectedSha256, $actualSha256)) {
             throw new RuntimeException('Agent artifact SHA-256 verification failed.');
         }
     }
@@ -101,13 +100,13 @@ class ReleaseManifestVerifier
             throw new RuntimeException('Release public key has an invalid Ed25519 key length.');
         }
 
-        if (! preg_match('/^[a-f0-9]{64}$/i', $expectedFingerprint)) {
+        if (! preg_match('/^[a-f0-9]{64}$/D', $expectedFingerprint)) {
             throw new RuntimeException('Expected release public key fingerprint is invalid.');
         }
 
         $actualFingerprint = hash('sha256', $der);
 
-        if (! hash_equals(strtolower($expectedFingerprint), $actualFingerprint)) {
+        if (! hash_equals($expectedFingerprint, $actualFingerprint)) {
             throw new RuntimeException('Release public key fingerprint verification failed.');
         }
 
@@ -146,15 +145,24 @@ class ReleaseManifestVerifier
             throw new RuntimeException('Release manifest key ID does not match the trusted key.');
         }
 
-        foreach (['version', 'protocol_version', 'released_at'] as $field) {
-            if (! is_string($manifest[$field]) || trim($manifest[$field]) === '') {
-                throw new RuntimeException("Release manifest field {$field} is invalid.");
-            }
+        if (
+            ! is_string($manifest['version'])
+            || ! preg_match('/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/D', $manifest['version'])
+        ) {
+            throw new RuntimeException('Release manifest version is invalid.');
         }
 
-        if (! is_array($manifest['artifacts']) || $manifest['artifacts'] === []) {
-            throw new RuntimeException('Release manifest contains no artifacts.');
+        if (! is_int($manifest['protocol_version']) || $manifest['protocol_version'] < 1) {
+            throw new RuntimeException('Release manifest protocol_version is invalid.');
         }
+
+        $this->validateReleasedAt($manifest['released_at']);
+
+        if (! is_array($manifest['artifacts']) || ! array_is_list($manifest['artifacts']) || $manifest['artifacts'] === []) {
+            throw new RuntimeException('Release manifest contains no valid artifacts.');
+        }
+
+        $seenPlatforms = [];
 
         foreach ($manifest['artifacts'] as $artifact) {
             if (! is_array($artifact)) {
@@ -169,6 +177,14 @@ class ReleaseManifestVerifier
                 ) {
                     throw new RuntimeException("Release artifact is missing {$field}.");
                 }
+            }
+
+            if (! preg_match('/^[a-z0-9][a-z0-9._-]*$/D', $artifact['os'])) {
+                throw new RuntimeException('Release artifact operating system is invalid.');
+            }
+
+            if (! preg_match('/^[a-z0-9][a-z0-9._-]*$/D', $artifact['architecture'])) {
+                throw new RuntimeException('Release artifact architecture is invalid.');
             }
 
             if (
@@ -191,9 +207,40 @@ class ReleaseManifestVerifier
                 throw new RuntimeException('Release artifact URL must be a valid HTTPS URL.');
             }
 
-            if (! preg_match('/^[a-f0-9]{64}$/i', $artifact['sha256'])) {
+            if (! preg_match('/^[a-f0-9]{64}$/D', $artifact['sha256'])) {
                 throw new RuntimeException('Release artifact SHA-256 digest is malformed.');
             }
+
+            $platform = $artifact['os'] . ':' . $artifact['architecture'];
+
+            if (isset($seenPlatforms[$platform])) {
+                throw new RuntimeException('Release manifest contains duplicate platform artifacts.');
+            }
+
+            $seenPlatforms[$platform] = true;
+        }
+    }
+
+    private function validateReleasedAt(mixed $releasedAt): void
+    {
+        if (! is_string($releasedAt)) {
+            throw new RuntimeException('Release manifest released_at is invalid.');
+        }
+
+        $date = DateTimeImmutable::createFromFormat(
+            '!Y-m-d\TH:i:s\Z',
+            $releasedAt,
+            new DateTimeZone('UTC')
+        );
+
+        $errors = DateTimeImmutable::getLastErrors();
+
+        if (
+            $date === false
+            || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
+            || $date->format('Y-m-d\TH:i:s\Z') !== $releasedAt
+        ) {
+            throw new RuntimeException('Release manifest released_at must be an ISO 8601 UTC timestamp.');
         }
     }
 }
