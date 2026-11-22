@@ -35,6 +35,26 @@ class ActivationStateReaderTest extends TestCase
         );
     }
 
+    public function test_it_denies_unexpected_state_fields(): void
+    {
+        $state = $this->activeState();
+        $state['extra'] = 'not-allowed';
+
+        self::assertFalse(
+            $this->validateState($state, 'health')
+        );
+    }
+
+    public function test_it_denies_duplicate_capabilities(): void
+    {
+        $state = $this->activeState();
+        $state['capabilities'] = ['health', 'health'];
+
+        self::assertFalse(
+            $this->validateState($state, 'health')
+        );
+    }
+
     public function test_it_denies_a_state_for_another_application(): void
     {
         $state = $this->activeState();

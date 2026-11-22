@@ -61,6 +61,8 @@ class ActivationStateReader
     {
         clearstatcache(true, $path);
 
+        $this->assertSafePath($path);
+
         if (is_link($path) || ! is_file($path) || ! is_readable($path)) {
             throw new \RuntimeException('Activation state file is unavailable.');
         }
@@ -121,12 +123,71 @@ class ActivationStateReader
         return $state;
     }
 
+    private function assertSafePath(string $path): void
+    {
+        if (! str_starts_with($path, DIRECTORY_SEPARATOR)) {
+            throw new \\RuntimeException('Activation state path must be absolute.');
+        }
+
+        $segments = array_values(array_filter(
+            explode(DIRECTORY_SEPARATOR, $path),
+            static fn (string $segment): bool => $segment !== ''
+        ));
+
+        $currentPath = DIRECTORY_SEPARATOR;
+
+        foreach ($segments as $index => $segment) {
+            $currentPath = rtrim($currentPath, DIRECTORY_SEPARATOR)
+                . DIRECTORY_SEPARATOR
+                . $segment;
+
+            clearstatcache(true, $currentPath);
+
+            $metadata = lstat($currentPath);
+
+            if (! is_array($metadata) || is_link($currentPath)) {
+                throw new \\RuntimeException('Activation state path contains an unsafe component.');
+            }
+
+            $isFinalComponent = $index === count($segments) - 1;
+            $expectedType = $isFinalComponent ? 0100000 : 0040000;
+
+            if (
+                (($metadata['mode'] & 0170000) !== $expectedType)
+                || $metadata['uid'] !== 0
+                || (($metadata['mode'] & 0022) !== 0)
+            ) {
+                throw new \\RuntimeException('Activation state path ownership or permissions are invalid.');
+            }
+        }
+    }
+
     private function isValidState(
         array $state,
         string $expectedApplicationId,
         string $expectedApplicationKey,
         string $capability
     ): bool {
+        $expectedKeys = [
+            'protocol_version',
+            'application_id',
+            'application_key',
+            'activation_state',
+            'monitoring_enabled',
+            'grant_acknowledged',
+            'capabilities',
+            'observed_at',
+            'valid_until',
+        ];
+
+        $actualKeys = array_keys($state);
+        sort($expectedKeys);
+        sort($actualKeys);
+
+        if ($actualKeys !== $expectedKeys) {
+            return false;
+        }
+
         if (
             ($state['protocol_version'] ?? null) !== 1
             || ($state['application_id'] ?? null) !== $expectedApplicationId
@@ -138,6 +199,10 @@ class ActivationStateReader
             || ! array_is_list($state['capabilities'])
             || ! in_array($capability, $state['capabilities'], true)
         ) {
+            return false;
+        }
+
+        if (count($state['capabilities']) !== count(array_unique($state['capabilities']))) {
             return false;
         }
 
