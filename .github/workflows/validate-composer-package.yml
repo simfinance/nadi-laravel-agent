@@ -50,6 +50,21 @@ jobs:
                       exit 1
                   fi
 
+            - name: Verify Activation Grant trust anchor
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  key="resources/agent/activation-public.pem"
+                  expected="160a8cfa0ebe7b109230a6c15c8f3aa7fc0bfa4f8cdb1239de9bb8dee348ba25"
+
+                  test -s "$key"
+                  actual="$(openssl pkey -pubin -in "$key" -outform DER | sha256sum | awk '{print $1}')"
+
+                  if [ "$actual" != "$expected" ]; then
+                      echo "Activation public key fingerprint mismatch." >&2
+                      exit 1
+                  fi
+
             - name: Verify bundled Agent binaries
               run: bash scripts/verify-package-artifacts.sh
 

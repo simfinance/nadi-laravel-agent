@@ -13,6 +13,14 @@ return [
 
     'release_public_key_fingerprint' => '91d063a323ffb7feaad3e4bf39d750ec339b2206b74f762d11e1f291267a49e1',
 
+    'activation_key_id' => 'nadi-central-2026-01',
+
+    'activation_public_key' => is_file(dirname(__DIR__) . '/resources/agent/activation-public.pem')
+        ? (string) file_get_contents(dirname(__DIR__) . '/resources/agent/activation-public.pem')
+        : '',
+
+    'activation_public_key_fingerprint' => '160a8cfa0ebe7b109230a6c15c8f3aa7fc0bfa4f8cdb1239de9bb8dee348ba25',
+
     'agent_version' => '0.7.0',
 
     /*
