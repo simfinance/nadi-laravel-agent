@@ -1,0 +1,60 @@
+name: Validate Composer Package
+
+on:
+    pull_request:
+    push:
+        branches:
+            - main
+        tags:
+            - 'v*'
+
+permissions:
+    contents: read
+
+jobs:
+    validate:
+        name: PHP package validation
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                php: ['8.2', '8.3']
+
+        steps:
+            - name: Checkout source
+              uses: actions/checkout@v4
+
+            - name: Set up PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ matrix.php }}
+                  coverage: none
+                  tools: composer:v2
+
+            - name: Validate Composer metadata
+              run: composer validate --no-check-publish
+
+            - name: Verify bundled Agent binaries
+              run: bash scripts/verify-package-artifacts.sh
+
+            - name: Install development dependencies
+              run: composer update --prefer-dist --no-interaction --no-progress
+
+            - name: Lint PHP source and tests
+              run: composer lint
+
+            - name: Run PHPUnit
+              run: composer test
+
+            - name: Verify Composer dist excludes development payload
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  composer archive --format=zip --file=/tmp/nadi-package-dist
+                  unzip -l /tmp/nadi-package-dist.zip > /tmp/nadi-package-dist-list.txt
+                  if grep -E '(^|/)(source|bin|tests|scripts|\.github)/' /tmp/nadi-package-dist-list.txt; then
+                      echo 'Development files leaked into Composer dist archive.' >&2
+                      exit 1
+                  fi
+                  grep -q 'resources/agent/linux-amd64/nadi-agent' /tmp/nadi-package-dist-list.txt
+                  grep -q 'resources/agent/linux-arm64/nadi-agent' /tmp/nadi-package-dist-list.txt

@@ -1,0 +1,13 @@
+# Keep Composer dist limited to Laravel runtime and Agent artifacts.
+/source/ export-ignore
+/bin/ export-ignore
+/tests/ export-ignore
+/scripts/ export-ignore
+/docs/ export-ignore
+/.github/ export-ignore
+/systemd/ export-ignore
+/INSTALL-SIMPIAV2.md export-ignore
+/RELEASE-NOTES*.md export-ignore
+/REVIEW-*.md export-ignore
+/BINARIES-SHA256SUMS.txt export-ignore
+/DISTRIBUTION-KIT-README.md export-ignore
