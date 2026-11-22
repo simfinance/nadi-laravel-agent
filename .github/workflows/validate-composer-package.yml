@@ -50,8 +50,8 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
-                  composer archive --format=zip --file=/tmp/nadi-package-dist
-                  unzip -l /tmp/nadi-package-dist.zip > /tmp/nadi-package-dist-list.txt
+                  composer archive --format=zip --file=nadi-package-dist
+                  unzip -l nadi-package-dist.zip > /tmp/nadi-package-dist-list.txt
                   if grep -E '(^|/)(source|bin|tests|scripts|\.github)/' /tmp/nadi-package-dist-list.txt; then
                       echo 'Development files leaked into Composer dist archive.' >&2
                       exit 1
