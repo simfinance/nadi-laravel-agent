@@ -34,6 +34,22 @@ jobs:
             - name: Validate Composer metadata
               run: composer validate --no-check-publish
 
+            - name: Verify release signing trust anchor
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  key="resources/agent/release-signing-public.pem"
+                  expected="91d063a323ffb7feaad3e4bf39d750ec339b2206b74f762d11e1f291267a49e1"
+
+                  test -s "$key"
+
+                  actual="$(openssl pkey -pubin -in "$key" -outform DER | sha256sum | awk '{print $1}')"
+
+                  if [ "$actual" != "$expected" ]; then
+                      echo "Release public key fingerprint mismatch." >&2
+                      exit 1
+                  fi
+
             - name: Verify bundled Agent binaries
               run: bash scripts/verify-package-artifacts.sh
 
@@ -58,3 +74,4 @@ jobs:
                   fi
                   grep -q 'resources/agent/linux-amd64/nadi-agent' /tmp/nadi-package-dist-list.txt
                   grep -q 'resources/agent/linux-arm64/nadi-agent' /tmp/nadi-package-dist-list.txt
+                  grep -q 'resources/agent/release-signing-public.pem' /tmp/nadi-package-dist-list.txt

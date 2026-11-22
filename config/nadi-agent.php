@@ -5,7 +5,11 @@ return [
 
     'release_manifest_url' => 'https://nadi.pesantrenalirsyad.org/api/v1/nadi/releases/manifest',
 
-    'release_public_key' => '',
+    'release_key_id' => 'nadi-agent-release-2026-01',
+
+    'release_public_key' => is_file(dirname(__DIR__) . '/resources/agent/release-signing-public.pem')
+        ? file_get_contents(dirname(__DIR__) . '/resources/agent/release-signing-public.pem')
+        : '',
 
     'agent_version' => '0.7.0',
 
