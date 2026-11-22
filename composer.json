@@ -53,7 +53,8 @@
             "/INSTALL-SIMPIAV2.md",
             "/RELEASE-NOTES*.md",
             "/REVIEW-*.md",
-            "/BINARIES-SHA256SUMS.txt"
+            "/BINARIES-SHA256SUMS.txt",
+            "/vendor/**"
         ]
     }
 }
