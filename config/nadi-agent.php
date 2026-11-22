@@ -11,6 +11,8 @@ return [
         ? file_get_contents(dirname(__DIR__) . '/resources/agent/release-signing-public.pem')
         : '',
 
+    'release_public_key_fingerprint' => '91d063a323ffb7feaad3e4bf39d750ec339b2206b74f762d11e1f291267a49e1',
+
     'agent_version' => '0.7.0',
 
     /*
