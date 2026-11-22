@@ -3,15 +3,15 @@
 ## Decision
 
 The package is distributed as the VCS package `nadi/laravel-agent` from the
-private GitHub repository `simfinance/nadi-agent`, indexed by Private Packagist.
+private GitHub repository `simfinance/nadi-laravel-agent`, indexed by Private Packagist.
 Private Packagist is the Composer registry; GitHub remains the source of truth.
 No ZIP or Agent binary is uploaded manually to a customer server.
 
 ## Publisher setup (one-time)
 
 1. Create or select the NADI organization in Private Packagist.
-2. Connect the GitHub organization/account that owns `simfinance/nadi-agent`.
-3. Add the private GitHub repository `simfinance/nadi-agent` as a package.
+2. Connect the GitHub organization/account that owns `simfinance/nadi-laravel-agent`.
+3. Add the private GitHub repository `simfinance/nadi-laravel-agent` as a package.
 4. Confirm the detected Composer package name is exactly `nadi/laravel-agent`.
 5. Enable automatic updates/webhooks for Git tags and commits.
 6. Grant package read access only to the intended deployment/customer identities.
@@ -50,8 +50,8 @@ Use an organization **update** token (scoped to the required package/team) or an
 authorized user token for the initial `composer require`, because this command
 updates the dependency graph. Private Packagist read-only organization tokens
 are intended for installs using an existing `composer.lock`, not for a fresh
-`composer require`. Store the generated username/token exactly as shown on the
-Private Packagist authentication page; do not assume the username value. Prefer
+`composer require`. Store the generated username/token exactly as shown on
+the Private Packagist authentication page; do not assume the username value. Prefer
 an ephemeral deployment secret and restrict the Composer home files to the
 owning deployment user. Do not copy the token into the Laravel project.
 
