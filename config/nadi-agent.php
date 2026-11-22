@@ -47,6 +47,16 @@ return [
      */
     'credential_file' => storage_path('app/private/nadi/credential'),
 
+    /*
+     * Root-owned activation assertion published by the local handoff broker.
+     * Null deliberately denies activation until provisioning configures it.
+     */
+    'activation_state_file' => null,
+
+    'activation_application_id' => null,
+
+    'activation_application_key' => null,
+
     'database' => [
         'cache_seconds' => 10,
     ],
