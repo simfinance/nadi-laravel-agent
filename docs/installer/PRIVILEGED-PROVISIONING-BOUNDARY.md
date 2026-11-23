@@ -45,16 +45,22 @@ Protocol version 1 request envelope:
         "signature_base64": "<detached Ed25519 signature>",
         "artifact_path": "<private staging file path>"
     },
-    "application": {
-        "application_key": "<stable application key>",
-        "application_name": "<application name>",
-        "environment": "<application environment>",
-        "base_url": "<HTTPS application URL>"
+    "applications": [
+        {
+            "application_key": "<stable application key>",
+            "base_path": "<canonical Laravel application path>",
+            "runtime_uid": 1001,
+            "runtime_gid": 1001
+        }
+    ],
+    "enrollment": {
+        "manifest_base64": "<base64 JSON manifest containing all 1-20 applications>",
+        "token": "<one-time enrollment token>"
     }
 }
 ```
 
-The Bridge preflight discovers PHP-FPM pool identities from `/etc/php/*/fpm/pool.d/*.conf`. It proceeds only when every discovered pool resolves to one unambiguous non-root UID/GID pair; multiple distinct runtime identities or unresolved users/groups fail closed. The example UID/GID 33 is illustrative only. The helper must independently verify that the supplied runtime UID/GID still matches the configured PHP-FPM pool before registering the Bridge destination.
+The Bridge preflight discovers PHP-FPM pool identities from `/etc/php/*/fpm/pool.d/*.conf` and resolves one non-root UID/GID pair for each application target. The current application may infer its identity only when all discovered pools use one unique identity; otherwise its `nadi-agent.runtime_user` and optional `runtime_group` must be configured. Every additional application must declare `base_path`, `base_url`, `application_name`, `environment`, `runtime_user`, and `runtime_group` under `nadi-agent.additional_applications`. Each application must resolve to a distinct non-root runtime UID when per-application credential isolation is required. Shared UIDs represent a shared trust boundary, not isolated credentials. The example UID/GID 1001 is illustrative only. The helper must independently verify that each supplied runtime UID/GID still matches a PHP-FPM pool before registering the Bridge destination.
 
 The helper must independently verify the exact manifest bytes, detached Ed25519 signature, trusted release key ID and fingerprint, selected Linux architecture, artifact SHA-256, and release version before installing any binary. It must open the staged artifact without following symlinks, copy it into a root-owned temporary file, and verify the copied bytes before atomic installation. It must not trust a digest supplied independently of the signed manifest.
 
