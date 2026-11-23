@@ -95,6 +95,61 @@ class PreflightTest extends TestCase
         );
     }
 
+    public function test_it_resolves_distinct_runtime_identities_for_multiple_applications(): void
+    {
+        $primaryUser = posix_getpwnam('www-data');
+        $secondaryUser = posix_getpwnam('nobody');
+        $primaryGroup = is_array($primaryUser)
+            ? posix_getgrgid((int) $primaryUser['gid'])
+            : false;
+        $secondaryGroup = is_array($secondaryUser)
+            ? posix_getgrgid((int) $secondaryUser['gid'])
+            : false;
+
+        if (
+            ! is_array($primaryUser)
+            || ! is_array($secondaryUser)
+            || ! is_array($primaryGroup)
+            || ! is_array($secondaryGroup)
+            || (int) $primaryUser['uid'] === (int) $secondaryUser['uid']
+        ) {
+            self::markTestSkipped('Distinct www-data and nobody identities are not available on this test host.');
+        }
+
+        file_put_contents(
+            $this->configurationRoot . '/8.3/fpm/pool.d/primary.conf',
+            " [primary]\\nuser = www-data\\ngroup = " . $primaryGroup['name'] . "\\n"
+        );
+        file_put_contents(
+            $this->configurationRoot . '/8.3/fpm/pool.d/secondary.conf',
+            " [secondary]\\nuser = nobody\\ngroup = " . $secondaryGroup['name'] . "\\n"
+        );
+
+        $targets = [
+            [
+                'application_key' => 'primary-app',
+                'base_path' => '/srv/www/primary',
+                'runtime_user' => 'www-data',
+                'runtime_group' => $primaryGroup['name'],
+            ],
+            [
+                'application_key' => 'secondary-app',
+                'base_path' => '/srv/www/secondary',
+                'runtime_user' => 'nobody',
+                'runtime_group' => $secondaryGroup['name'],
+            ],
+        ];
+
+        $identities = (new Preflight())->resolveApplicationRuntimeIdentities(
+            $targets,
+            $this->configurationRoot
+        );
+
+        self::assertIsArray($identities);
+        self::assertCount(2, $identities);
+        self::assertNotSame($identities[0]['uid'], $identities[1]['uid']);
+    }
+
     public function test_it_rejects_a_root_php_fpm_pool(): void
     {
         file_put_contents(
