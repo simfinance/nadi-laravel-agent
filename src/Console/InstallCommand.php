@@ -121,6 +121,7 @@ class InstallCommand extends Command
                 $binaryPath,
                 $applicationManifest,
                 base_path(),
+                $result['php_fpm_identity'],
                 trim($enrollmentToken)
             );
         } catch (Throwable $exception) {
