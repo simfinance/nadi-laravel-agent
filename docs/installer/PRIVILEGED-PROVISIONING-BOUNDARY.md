@@ -1,6 +1,6 @@
 # Privileged Provisioning Boundary
 
-Status: design contract only. No privileged helper is shipped by this Composer package yet.
+Status: Laravel-side fixed-command adapter implemented. The root-owned helper is still a separately installed prerequisite and is not shipped or bootstrapped by this Composer package.
 
 ## Security boundary
 
@@ -86,9 +86,9 @@ This is a release-blocking integration dependency. Define a dedicated authentica
 
 ## Fail-closed requirements
 
-Until the separately installed helper, its sudoers policy, helper protocol tests, enrollment handoff, rollback, and post-install verification are implemented and tested:
+Until the separately installed helper, its exact sudoers policy, helper implementation and protocol tests, runtime identity discovery, enrollment handoff, rollback, and post-install verification are implemented and tested:
 
-- `php artisan nadi:install` must fail closed after signed release verification and private staging.
+- `php artisan nadi:install` verifies and stages the signed Agent release, then fails closed if the root-owned helper is missing or untrusted.
 - No sudo command is attempted.
 - No Agent enrollment is submitted.
 - No systemd service is enabled or started.
