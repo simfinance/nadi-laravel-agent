@@ -115,22 +115,31 @@ class PrivilegedProvisioner
         ]);
 
         try {
-            $process->run();
-        } catch (Throwable $exception) {
-            throw new RuntimeException(
-                'NADI privileged provisioning could not be completed.',
-                0,
-                $exception
-            );
-        }
+            try {
+                $process->run();
+            } catch (Throwable $exception) {
+                throw new RuntimeException(
+                    'NADI privileged provisioning could not be completed.',
+                    0,
+                    $exception
+                );
+            }
 
-        if (! $process->isSuccessful()) {
-            throw new RuntimeException(
-                'NADI privileged provisioning failed. No successful installation or enrollment was confirmed.'
-            );
-        }
+            if (! $process->isSuccessful()) {
+                throw new RuntimeException(
+                    'NADI privileged provisioning failed. No successful installation or enrollment was confirmed.'
+                );
+            }
 
-        return $this->decodeResponse($process->getOutput());
+            return $this->decodeResponse($process->getOutput());
+        } finally {
+            if (function_exists('sodium_memzero')) {
+                sodium_memzero($requestBody);
+                sodium_memzero($request['enrollment_token']);
+            }
+
+            unset($process, $requestBody, $request);
+        }
     }
 
     public function decodeResponse(string $responseBody): array
