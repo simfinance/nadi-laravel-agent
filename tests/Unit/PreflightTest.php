@@ -118,11 +118,11 @@ class PreflightTest extends TestCase
 
         file_put_contents(
             $this->configurationRoot . '/8.3/fpm/pool.d/primary.conf',
-            " [primary]\\nuser = www-data\\ngroup = " . $primaryGroup['name'] . "\\n"
+            "[primary]\nuser = www-data\ngroup = " . $primaryGroup['name'] . "\n"
         );
         file_put_contents(
             $this->configurationRoot . '/8.3/fpm/pool.d/secondary.conf',
-            " [secondary]\\nuser = nobody\\ngroup = " . $secondaryGroup['name'] . "\\n"
+            "[secondary]\nuser = nobody\ngroup = " . $secondaryGroup['name'] . "\n"
         );
 
         $targets = [
