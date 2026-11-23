@@ -111,6 +111,7 @@ class PrivilegedProvisioner
 
         $applicationRequests = [];
         $resolvedPaths = [];
+        $seenTargetKeys = [];
 
         foreach ($applicationTargets as $target) {
             if (
@@ -124,9 +125,16 @@ class PrivilegedProvisioner
             $key = $target['application_key'];
             $identity = $identityByKey[$key] ?? null;
 
-            if (! isset($manifestByKey[$key]) || ! is_array($identity)) {
-                throw new RuntimeException('Application target does not match the enrollment manifest and PHP-FPM identity.');
+            if (
+                isset($seenTargetKeys[$key])
+                || ! isset($manifestByKey[$key])
+                || ! is_array($identity)
+                || ($identity['base_path'] ?? null) !== $target['base_path']
+            ) {
+                throw new RuntimeException('Application target does not uniquely match the enrollment manifest and PHP-FPM identity.');
             }
+
+            $seenTargetKeys[$key] = true;
 
             $resolvedPath = realpath($target['base_path']);
 
