@@ -126,7 +126,7 @@ class ActivationStateReader
     private function assertSafePath(string $path): void
     {
         if (! str_starts_with($path, DIRECTORY_SEPARATOR)) {
-            throw new \\RuntimeException('Activation state path must be absolute.');
+            throw new \RuntimeException('Activation state path must be absolute.');
         }
 
         $segments = array_values(array_filter(
@@ -146,7 +146,7 @@ class ActivationStateReader
             $metadata = lstat($currentPath);
 
             if (! is_array($metadata) || is_link($currentPath)) {
-                throw new \\RuntimeException('Activation state path contains an unsafe component.');
+                throw new \RuntimeException('Activation state path contains an unsafe component.');
             }
 
             $isFinalComponent = $index === count($segments) - 1;
@@ -157,7 +157,7 @@ class ActivationStateReader
                 || $metadata['uid'] !== 0
                 || (($metadata['mode'] & 0022) !== 0)
             ) {
-                throw new \\RuntimeException('Activation state path ownership or permissions are invalid.');
+                throw new \RuntimeException('Activation state path ownership or permissions are invalid.');
             }
         }
     }
