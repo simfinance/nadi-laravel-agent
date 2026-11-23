@@ -9,6 +9,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthorizeNadiRequest
 {
+    private const MAXIMUM_CREDENTIAL_FILE_SIZE = 4096;
+
     public function handle(Request $request, Closure $next): Response
     {
         if (! config('nadi-agent.enabled', false)) {
@@ -39,18 +41,78 @@ class AuthorizeNadiRequest
     {
         $credentialPath = config('nadi-agent.credential_file');
 
-        if (! is_string($credentialPath) || $credentialPath === '' || ! is_file($credentialPath)) {
+        if (
+            ! is_string($credentialPath)
+            || $credentialPath === ''
+            || ! str_starts_with($credentialPath, DIRECTORY_SEPARATOR)
+        ) {
             return null;
         }
 
-        if (! is_readable($credentialPath)) {
+        clearstatcache(true, $credentialPath);
+
+        if (is_link($credentialPath)) {
             return null;
         }
 
-        $credential = file_get_contents($credentialPath);
+        $pathStat = @lstat($credentialPath);
 
-        if (! is_string($credential)) {
+        if (
+            ! is_array($pathStat)
+            || (($pathStat['mode'] & 0170000) !== 0100000)
+            || (($pathStat['mode'] & 0777) !== 0600)
+            || $pathStat['size'] < 1
+            || $pathStat['size'] > self::MAXIMUM_CREDENTIAL_FILE_SIZE
+        ) {
             return null;
+        }
+
+        if (
+            function_exists('posix_geteuid')
+            && $pathStat['uid'] !== posix_geteuid()
+        ) {
+            return null;
+        }
+
+        $handle = @fopen($credentialPath, 'rb');
+
+        if ($handle === false) {
+            return null;
+        }
+
+        try {
+            $handleStat = fstat($handle);
+
+            if (
+                ! is_array($handleStat)
+                || $handleStat['dev'] !== $pathStat['dev']
+                || $handleStat['ino'] !== $pathStat['ino']
+                || (($handleStat['mode'] & 0170000) !== 0100000)
+                || (($handleStat['mode'] & 0777) !== 0600)
+                || $handleStat['size'] < 1
+                || $handleStat['size'] > self::MAXIMUM_CREDENTIAL_FILE_SIZE
+                || (
+                    function_exists('posix_geteuid')
+                    && $handleStat['uid'] !== posix_geteuid()
+                )
+            ) {
+                return null;
+            }
+
+            $credential = stream_get_contents(
+                $handle,
+                self::MAXIMUM_CREDENTIAL_FILE_SIZE + 1
+            );
+
+            if (
+                ! is_string($credential)
+                || $credential === ''
+                || strlen($credential) > self::MAXIMUM_CREDENTIAL_FILE_SIZE
+            ) {
+                return null;
+            }
+        } finally {
+            fclose($handle);
         }
 
         $credential = trim($credential);
@@ -89,7 +151,7 @@ class AuthorizeNadiRequest
             return null;
         }
 
-        if (! preg_match('/^Bearer\s+(.+)$/i', trim($authorization), $matches)) {
+        if (! preg_match('/^Bearer\\s+(.+)$/i', trim($authorization), $matches)) {
             return null;
         }
 
