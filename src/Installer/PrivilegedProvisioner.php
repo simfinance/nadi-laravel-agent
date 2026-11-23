@@ -227,7 +227,7 @@ class PrivilegedProvisioner
             || is_link($path)
             || $metadata['uid'] !== 0
             || (($metadata['mode'] & 0022) !== 0)
-            || ! is_executable($path)
+            || (($metadata['mode'] & 0100) !== 0100)
         ) {
             throw new RuntimeException(
                 $label . ' is missing or does not meet the root-owned executable policy.'
