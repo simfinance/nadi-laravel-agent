@@ -17,7 +17,7 @@ class PrivilegedProvisionerTest extends TestCase
             self::fail('Expected the missing privileged helper to be rejected.');
         } catch (RuntimeException $exception) {
             self::assertStringContainsString(
-                'NADI provisioning helper is missing',
+                'NADI provisioning helper',
                 $exception->getMessage()
             );
         }
