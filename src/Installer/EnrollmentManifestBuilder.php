@@ -1,8 +1,8 @@
 <?php
 
-namespace Nadi\\LaravelAgent\\Installer;
+namespace Nadi\LaravelAgent\Installer;
 
-use Illuminate\\Contracts\\Foundation\\Application;
+use Illuminate\Contracts\Foundation\Application;
 use RuntimeException;
 
 class EnrollmentManifestBuilder
@@ -94,7 +94,7 @@ class EnrollmentManifestBuilder
         $seenKeys = [];
         $seenPaths = [];
 
-        foreach ($inventory as $index => $application) {
+        foreach ($inventory as $application) {
             $key = $application['manifest']['application_key'];
             $path = $application['target']['base_path'];
 
