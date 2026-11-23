@@ -33,8 +33,8 @@ class PrivilegedProvisioner
         array $signedRelease,
         string $artifactPath,
         array $applicationManifest,
-        string $applicationBasePath,
-        array $runtimeIdentity,
+        array $applicationTargets,
+        array $runtimeIdentities,
         string $enrollmentToken
     ): array {
         $this->assertAvailable();
@@ -55,23 +55,119 @@ class PrivilegedProvisioner
             throw new RuntimeException('Enrollment token format is invalid.');
         }
 
+        $manifestApplications = $applicationManifest['applications'] ?? null;
+
         if (
-            ! isset($runtimeIdentity['uid'], $runtimeIdentity['gid'])
-            || ! is_int($runtimeIdentity['uid'])
-            || ! is_int($runtimeIdentity['gid'])
-            || $runtimeIdentity['uid'] < 1
-            || $runtimeIdentity['gid'] < 1
+            ! is_array($manifestApplications)
+            || ! array_is_list($manifestApplications)
+            || count($manifestApplications) < 1
+            || count($manifestApplications) > 20
+            || count($applicationTargets) !== count($manifestApplications)
+            || count($runtimeIdentities) !== count($manifestApplications)
         ) {
-            throw new RuntimeException('A verified non-root PHP-FPM runtime identity is required.');
+            throw new RuntimeException('One Agent enrollment must contain 1 to 20 complete application mappings.');
         }
 
-        $resolvedApplicationPath = realpath($applicationBasePath);
+        $identityByKey = [];
+        $seenUIDs = [];
+
+        foreach ($runtimeIdentities as $identity) {
+            if (
+                ! is_array($identity)
+                || ! is_string($identity['application_key'] ?? null)
+                || ! is_int($identity['uid'] ?? null)
+                || ! is_int($identity['gid'] ?? null)
+                || $identity['uid'] < 1
+                || $identity['gid'] < 1
+            ) {
+                throw new RuntimeException('A verified non-root PHP-FPM identity is missing for an application.');
+            }
+
+            $key = $identity['application_key'];
+
+            if (isset($identityByKey[$key]) || isset($seenUIDs[$identity['uid']])) {
+                throw new RuntimeException('Application runtime identities must have unique application keys and UIDs.');
+            }
+
+            $identityByKey[$key] = $identity;
+            $seenUIDs[$identity['uid']] = true;
+        }
+
+        $manifestByKey = [];
+
+        foreach ($manifestApplications as $application) {
+            if (! is_array($application) || ! is_string($application['application_key'] ?? null)) {
+                throw new RuntimeException('Enrollment manifest contains an invalid application identity.');
+            }
+
+            $key = $application['application_key'];
+
+            if (isset($manifestByKey[$key])) {
+                throw new RuntimeException('Enrollment manifest contains duplicate application keys.');
+            }
+
+            $manifestByKey[$key] = $application;
+        }
+
+        $applicationRequests = [];
+        $resolvedPaths = [];
+
+        foreach ($applicationTargets as $target) {
+            if (
+                ! is_array($target)
+                || ! is_string($target['application_key'] ?? null)
+                || ! is_string($target['base_path'] ?? null)
+            ) {
+                throw new RuntimeException('Application provisioning target is invalid.');
+            }
+
+            $key = $target['application_key'];
+            $identity = $identityByKey[$key] ?? null;
+
+            if (! isset($manifestByKey[$key]) || ! is_array($identity)) {
+                throw new RuntimeException('Application target does not match the enrollment manifest and PHP-FPM identity.');
+            }
+
+            $resolvedPath = realpath($target['base_path']);
+
+            if (
+                $resolvedPath === false
+                || $resolvedPath !== $target['base_path']
+                || is_link($target['base_path'])
+                || ! is_file($resolvedPath . DIRECTORY_SEPARATOR . 'artisan')
+                || is_link($resolvedPath . DIRECTORY_SEPARATOR . 'artisan')
+            ) {
+                throw new RuntimeException('Laravel application path is unsafe or not canonical.');
+            }
+
+            foreach ($resolvedPaths as $existingPath) {
+                if (
+                    $resolvedPath === $existingPath
+                    || str_starts_with($resolvedPath, $existingPath . DIRECTORY_SEPARATOR)
+                    || str_starts_with($existingPath, $resolvedPath . DIRECTORY_SEPARATOR)
+                ) {
+                    throw new RuntimeException('Laravel application paths must not overlap.');
+                }
+            }
+
+            $resolvedPaths[] = $resolvedPath;
+            $applicationRequests[] = [
+                'application_key' => $key,
+                'base_path' => $resolvedPath,
+                'runtime_uid' => $identity['uid'],
+                'runtime_gid' => $identity['gid'],
+            ];
+        }
+
+        if (count($applicationRequests) !== count($manifestByKey)) {
+            throw new RuntimeException('Every enrollment application must have exactly one local provisioning target.');
+        }
+
         $resolvedArtifactPath = realpath($artifactPath);
         $stagingRoot = realpath(storage_path('app/private/nadi/releases/staging'));
 
         if (
-            $resolvedApplicationPath === false
-            || $resolvedArtifactPath === false
+            $resolvedArtifactPath === false
             || $stagingRoot === false
             || ! is_file($resolvedArtifactPath)
             || is_link($artifactPath)
@@ -80,7 +176,7 @@ class PrivilegedProvisioner
                 $stagingRoot . DIRECTORY_SEPARATOR
             )
         ) {
-            throw new RuntimeException('Agent artifact or Laravel application path is unsafe.');
+            throw new RuntimeException('Agent artifact staging path is unsafe.');
         }
 
         $request = [
@@ -91,18 +187,16 @@ class PrivilegedProvisioner
                 'signature_base64' => $signature,
                 'artifact_path' => $resolvedArtifactPath,
             ],
-            'application' => [
-                'base_path' => $resolvedApplicationPath,
+            'applications' => $applicationRequests,
+            'enrollment' => [
                 'manifest_base64' => base64_encode(
                     json_encode(
                         $applicationManifest,
                         JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
                     )
                 ),
-                'runtime_uid' => $runtimeIdentity['uid'],
-                'runtime_gid' => $runtimeIdentity['gid'],
+                'token' => $enrollmentToken,
             ],
-            'enrollment_token' => $enrollmentToken,
         ];
 
         try {
