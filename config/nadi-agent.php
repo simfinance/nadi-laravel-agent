@@ -24,6 +24,21 @@ return [
     'agent_version' => '0.7.0',
 
     /*
+     * Additional Laravel applications enrolled by the same server Agent.
+     * Each entry must define application_name, environment, base_url,
+     * base_path, runtime_user, and runtime_group.
+     */
+    'additional_applications' => [],
+
+    /*
+     * Optional PHP-FPM identity override for the current Laravel application.
+     * Required when the host has multiple PHP-FPM pools.
+     */
+    'runtime_user' => env('NADI_RUNTIME_USER'),
+
+    'runtime_group' => env('NADI_RUNTIME_GROUP'),
+
+    /*
      * Installer-managed settings. The default state is deliberately disabled.
      * These values are written by the installer after secure enrollment.
      */
