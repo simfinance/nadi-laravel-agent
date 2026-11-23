@@ -21,12 +21,18 @@ class EnrollmentManifestBuilderTest extends TestCase
             . bin2hex(random_bytes(8));
 
         mkdir($this->applicationPath, 0700, true);
+        file_put_contents($this->applicationPath . '/artisan', "<?php\n");
     }
 
     protected function tearDown(): void
     {
         if (isset($this->applicationPath) && is_dir($this->applicationPath))
         {
+            if (is_file($this->applicationPath . '/artisan'))
+            {
+                unlink($this->applicationPath . '/artisan');
+            }
+
             rmdir($this->applicationPath);
         }
 
