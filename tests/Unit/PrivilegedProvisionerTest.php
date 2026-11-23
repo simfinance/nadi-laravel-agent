@@ -10,7 +10,7 @@ class PrivilegedProvisionerTest extends TestCase
 {
     public function test_it_fails_closed_when_the_root_owned_helper_is_not_installed(): void
     {
-        $provisioner = new PrivilegedProvisioner();
+        $provisioner = new PrivilegedProvisioner('/nonexistent/nadi-provision');
 
         try {
             $provisioner->assertAvailable();
