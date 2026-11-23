@@ -53,7 +53,7 @@ The broker must:
 4. Validate the credential as a non-empty bounded opaque secret; do not assume its format beyond the Central contract.
 5. Never log the request body, credential, or credential-derived values.
 6. Atomically write the credential to the exact registered destination for that application only.
-7. Set owner to the registered Laravel runtime UID and a dedicated Bridge group where required; set file mode to `0600` (or a separately reviewed stricter ACL if PHP runtime access requires it).
+7. Set owner to the registered Laravel runtime UID and GID; set file mode to `0600`. The PHP-FPM runtime must be able to read the credential as its own user. Do not introduce a separate Bridge group unless a separately reviewed design requires it.
 8. Use a same-directory temporary file, restrictive mode from creation, fsync, atomic rename, and directory fsync.
 9. Avoid following symlinks at the destination and reject unexpected pre-existing file types.
 10. Return only a bounded status and non-secret application identifier.
