@@ -93,6 +93,25 @@ class Preflight
             $runtimeUser = $target['runtime_user'] ?? null;
             $runtimeGroup = $target['runtime_group'] ?? null;
 
+            if ($runtimeUser === null || $runtimeUser === '') {
+                $uniquePoolIdentities = [];
+
+                foreach ($poolIdentities as $poolIdentity) {
+                    $uniquePoolIdentities[$poolIdentity['uid'] . ':' . $poolIdentity['gid']] = $poolIdentity;
+                }
+
+                if (count($uniquePoolIdentities) !== 1) {
+                    return null;
+                }
+
+                $inferredIdentity = array_values($uniquePoolIdentities)[0];
+                $runtimeUser = $inferredIdentity['user'];
+
+                if ($runtimeGroup === null || $runtimeGroup === '') {
+                    $runtimeGroup = $inferredIdentity['group'];
+                }
+            }
+
             if (
                 ! is_string($runtimeUser)
                 || ! preg_match('/^[a-zA-Z_][a-zA-Z0-9_.-]*$/D', $runtimeUser)
