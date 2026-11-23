@@ -17,10 +17,16 @@ class PrivilegedProvisioner
 
     private const MAXIMUM_RESPONSE_BYTES = 4096;
 
+    public function __construct(
+        private readonly string $helperPath = self::HELPER_PATH,
+        private readonly string $sudoPath = self::SUDO_PATH
+    ) {
+    }
+
     public function assertAvailable(): void
     {
-        $this->assertTrustedExecutable(self::HELPER_PATH, 'NADI provisioning helper');
-        $this->assertTrustedExecutable(self::SUDO_PATH, 'sudo');
+        $this->assertTrustedExecutable($this->helperPath, 'NADI provisioning helper');
+        $this->assertTrustedExecutable($this->sudoPath, 'sudo');
     }
 
     public function installAgent(
@@ -100,10 +106,10 @@ class PrivilegedProvisioner
         }
 
         $process = new Process([
-            self::SUDO_PATH,
+            $this->sudoPath,
             '-n',
             '--',
-            self::HELPER_PATH,
+            $this->helperPath,
             '--request-stdin',
         ]);
 
