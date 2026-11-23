@@ -34,6 +34,7 @@ class PrivilegedProvisioner
         string $artifactPath,
         array $applicationManifest,
         string $applicationBasePath,
+        array $runtimeIdentity,
         string $enrollmentToken
     ): array {
         $this->assertAvailable();
@@ -52,6 +53,16 @@ class PrivilegedProvisioner
 
         if (! preg_match('/^nadi_enroll_[a-f0-9]{64}$/D', $enrollmentToken)) {
             throw new RuntimeException('Enrollment token format is invalid.');
+        }
+
+        if (
+            ! isset($runtimeIdentity['uid'], $runtimeIdentity['gid'])
+            || ! is_int($runtimeIdentity['uid'])
+            || ! is_int($runtimeIdentity['gid'])
+            || $runtimeIdentity['uid'] < 1
+            || $runtimeIdentity['gid'] < 1
+        ) {
+            throw new RuntimeException('A verified non-root PHP-FPM runtime identity is required.');
         }
 
         $resolvedApplicationPath = realpath($applicationBasePath);
@@ -88,6 +99,8 @@ class PrivilegedProvisioner
                         JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
                     )
                 ),
+                'runtime_uid' => $runtimeIdentity['uid'],
+                'runtime_gid' => $runtimeIdentity['gid'],
             ],
             'enrollment_token' => $enrollmentToken,
         ];
