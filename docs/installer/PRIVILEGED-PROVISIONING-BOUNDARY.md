@@ -54,6 +54,8 @@ Protocol version 1 request envelope:
 }
 ```
 
+The Bridge preflight discovers PHP-FPM pool identities from `/etc/php/*/fpm/pool.d/*.conf`. It proceeds only when every discovered pool resolves to one unambiguous non-root UID/GID pair; multiple distinct runtime identities or unresolved users/groups fail closed. The example UID/GID 33 is illustrative only. The helper must independently verify that the supplied runtime UID/GID still matches the configured PHP-FPM pool before registering the Bridge destination.
+
 The helper must independently verify the exact manifest bytes, detached Ed25519 signature, trusted release key ID and fingerprint, selected Linux architecture, artifact SHA-256, and release version before installing any binary. It must open the staged artifact without following symlinks, copy it into a root-owned temporary file, and verify the copied bytes before atomic installation. It must not trust a digest supplied independently of the signed manifest.
 
 The Activation Grant public key and systemd unit are trust-sensitive resources. The helper must install known-good copies from its own root-owned build, not copy these files from the writable Laravel package tree.
@@ -94,7 +96,7 @@ This is a release-blocking integration dependency. Define a dedicated authentica
 
 ## Fail-closed requirements
 
-Until the separately installed helper, its exact sudoers policy, helper implementation and protocol tests, runtime identity discovery, enrollment handoff, rollback, and post-install verification are implemented and tested:
+Until the separately installed helper, its exact sudoers policy, helper implementation and protocol tests, independent runtime identity verification, enrollment handoff, rollback, and post-install verification are implemented and tested:
 
 - `php artisan nadi:install` verifies and stages the signed Agent release, then fails closed if the root-owned helper is missing or untrusted.
 - No sudo command is attempted.
