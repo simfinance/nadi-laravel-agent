@@ -256,7 +256,7 @@ class PrivilegedProvisioner
         } finally {
             if (function_exists('sodium_memzero')) {
                 sodium_memzero($requestBody);
-                sodium_memzero($request['enrollment_token']);
+                sodium_memzero($request['enrollment']['token']);
             }
 
             unset($process, $requestBody, $request);
