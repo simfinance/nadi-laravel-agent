@@ -193,6 +193,32 @@ class PrivilegedProvisioner
     {
         clearstatcache(true, $path);
 
+        $segments = array_values(array_filter(
+            explode(DIRECTORY_SEPARATOR, dirname($path)),
+            static fn (string $segment): bool => $segment !== ''
+        ));
+        $currentPath = DIRECTORY_SEPARATOR;
+
+        foreach ($segments as $segment) {
+            $currentPath = rtrim($currentPath, DIRECTORY_SEPARATOR)
+                . DIRECTORY_SEPARATOR
+                . $segment;
+            clearstatcache(true, $currentPath);
+            $directoryMetadata = lstat($currentPath);
+
+            if (
+                ! is_array($directoryMetadata)
+                || (($directoryMetadata['mode'] & 0170000) !== 0040000)
+                || is_link($currentPath)
+                || $directoryMetadata['uid'] !== 0
+                || (($directoryMetadata['mode'] & 0022) !== 0)
+            ) {
+                throw new RuntimeException(
+                    $label . ' parent directory does not meet the root-owned directory policy.'
+                );
+            }
+        }
+
         $metadata = lstat($path);
 
         if (
