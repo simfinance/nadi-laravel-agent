@@ -219,7 +219,14 @@ class PrivilegedProvisioner
                 . DIRECTORY_SEPARATOR
                 . $segment;
             clearstatcache(true, $currentPath);
-            $directoryMetadata = @lstat($currentPath);
+
+            if (! file_exists($currentPath) && ! is_link($currentPath)) {
+                throw new RuntimeException(
+                    $label . ' parent directory does not meet the root-owned directory policy.'
+                );
+            }
+
+            $directoryMetadata = lstat($currentPath);
 
             if (
                 ! is_array($directoryMetadata)
@@ -234,7 +241,13 @@ class PrivilegedProvisioner
             }
         }
 
-        $metadata = @lstat($path);
+        if (! file_exists($path) && ! is_link($path)) {
+            throw new RuntimeException(
+                $label . ' is missing or does not meet the root-owned executable policy.'
+            );
+        }
+
+        $metadata = lstat($path);
 
         if (
             ! is_array($metadata)
