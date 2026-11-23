@@ -57,6 +57,13 @@ return [
 
     'activation_application_key' => null,
 
+    'logs' => [
+        'application' => [
+            'max_entries' => 50,
+            'max_bytes' => 1048576,
+        ],
+    ],
+
     'database' => [
         'cache_seconds' => 10,
     ],

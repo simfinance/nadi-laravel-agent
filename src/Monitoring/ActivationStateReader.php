@@ -20,6 +20,7 @@ class ActivationStateReader
         'queue',
         'scheduler',
         'info',
+        'application_logs',
     ];
 
     public function allows(string $capability): bool

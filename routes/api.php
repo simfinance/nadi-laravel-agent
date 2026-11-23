@@ -37,4 +37,7 @@ Route::prefix($prefix)
         Route::get('/info', [BridgeController::class, 'info'])
             ->middleware(AuthorizeNadiActivation::class . ':info')
             ->name('info');
+        Route::get('/logs/application', [BridgeController::class, 'applicationLogs'])
+            ->middleware(AuthorizeNadiActivation::class . ':application_logs')
+            ->name('logs.application');
     });

@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\App;
 use Nadi\LaravelAgent\Monitoring\DatabaseProbe;
+use Nadi\LaravelAgent\Monitoring\ApplicationLogReader;
 
 class BridgeController extends Controller
 {
@@ -41,6 +42,11 @@ class BridgeController extends Controller
     public function scheduler(): JsonResponse
     {
         return $this->notImplemented('scheduler_monitoring');
+    }
+
+    public function applicationLogs(ApplicationLogReader $logReader): JsonResponse
+    {
+        return $this->success($logReader->collect());
     }
 
     public function info(): JsonResponse
