@@ -19,8 +19,8 @@ class PrivilegedProvisioner
 
     public function assertAvailable(): void
     {
-        $this->assertTrustedExecutable(self::SUDO_PATH, 'sudo');
         $this->assertTrustedExecutable(self::HELPER_PATH, 'NADI provisioning helper');
+        $this->assertTrustedExecutable(self::SUDO_PATH, 'sudo');
     }
 
     public function installAgent(
