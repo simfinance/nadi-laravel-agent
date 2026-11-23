@@ -3,10 +3,13 @@
 namespace Nadi\LaravelAgent\Console;
 
 use Illuminate\Console\Command;
+use Nadi\LaravelAgent\Installer\EnrollmentManifestBuilder;
 use Nadi\LaravelAgent\Installer\Preflight;
+use Nadi\LaravelAgent\Installer\PrivilegedProvisioner;
 use Nadi\LaravelAgent\Installer\ReleaseArtifactDownloader;
 use Nadi\LaravelAgent\Installer\ReleaseManifestClient;
 use RuntimeException;
+use Throwable;
 
 class InstallCommand extends Command
 {
@@ -17,7 +20,9 @@ class InstallCommand extends Command
     public function handle(
         Preflight $preflight,
         ReleaseManifestClient $releaseManifestClient,
-        ReleaseArtifactDownloader $artifactDownloader
+        ReleaseArtifactDownloader $artifactDownloader,
+        EnrollmentManifestBuilder $manifestBuilder,
+        PrivilegedProvisioner $provisioner
     ): int {
         $this->info('NADI Agent installer');
 
@@ -39,7 +44,8 @@ class InstallCommand extends Command
         }
 
         try {
-            $manifest = $releaseManifestClient->fetch();
+            $signedRelease = $releaseManifestClient->fetchSigned();
+            $manifest = $signedRelease['manifest'];
             $artifact = $releaseManifestClient->selectArtifact(
                 $manifest,
                 $result['architecture']
@@ -75,7 +81,7 @@ class InstallCommand extends Command
                 $artifact,
                 $stagingDirectory
             );
-        } catch (RuntimeException $exception) {
+        } catch (Throwable $exception) {
             $this->error($exception->getMessage());
             $this->warn('No Agent binary was executed, no enrollment was submitted, and no monitoring was started.');
 
@@ -90,13 +96,53 @@ class InstallCommand extends Command
             $binaryPath
         ));
 
-        $this->error(
-            'The privileged provisioning adapter and secure enrollment handoff are not yet connected.'
-        );
-        $this->warn(
-            'The verified binary remains non-executable in private staging. No enrollment or monitoring was started.'
-        );
+        try {
+            $provisioner->assertAvailable();
+            $applicationManifest = $manifestBuilder->build();
+        } catch (Throwable $exception) {
+            $this->error($exception->getMessage());
+            $this->warn('The verified Agent binary remains in private staging. No privileged command or enrollment was executed.');
 
-        return self::FAILURE;
+            return self::FAILURE;
+        }
+
+        $enrollmentToken = $this->secret('Enter the one-time NADI enrollment token');
+
+        if (! is_string($enrollmentToken) || trim($enrollmentToken) === '') {
+            $this->error('Enrollment token is required.');
+            $this->warn('No privileged command or enrollment was executed.');
+
+            return self::FAILURE;
+        }
+
+        try {
+            $provisioned = $provisioner->installAgent(
+                $signedRelease,
+                $binaryPath,
+                $applicationManifest,
+                base_path(),
+                trim($enrollmentToken)
+            );
+        } catch (Throwable $exception) {
+            $this->error($exception->getMessage());
+            $this->warn('Do not enable monitoring manually. Verify the provisioning helper and rollback state before retrying.');
+
+            return self::FAILURE;
+        } finally {
+            if (function_exists('sodium_memzero')) {
+                sodium_memzero($enrollmentToken);
+            }
+            unset($enrollmentToken);
+        }
+
+        $this->line('<fg=green>PASS</> privileged_agent_provisioning');
+        $this->line('<fg=green>PASS</> agent_enrollment');
+        $this->info(sprintf(
+            'NADI Agent %s enrolled with %d application(s). Control Poll is enabled; monitoring remains subject to Central approval and a valid acknowledged Activation Grant.',
+            $provisioned['agent_version'],
+            $provisioned['application_count']
+        ));
+
+        return self::SUCCESS;
     }
 }
