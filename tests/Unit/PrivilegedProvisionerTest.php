@@ -8,6 +8,21 @@ use RuntimeException;
 
 class PrivilegedProvisionerTest extends TestCase
 {
+    public function test_it_fails_closed_when_the_root_owned_helper_is_not_installed(): void
+    {
+        $provisioner = new PrivilegedProvisioner();
+
+        try {
+            $provisioner->assertAvailable();
+            self::fail('Expected the missing privileged helper to be rejected.');
+        } catch (RuntimeException $exception) {
+            self::assertStringContainsString(
+                'NADI provisioning helper is missing',
+                $exception->getMessage()
+            );
+        }
+    }
+
     public function test_it_accepts_only_a_complete_success_response(): void
     {
         $provisioner = new PrivilegedProvisioner();
