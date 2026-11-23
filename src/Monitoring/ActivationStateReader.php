@@ -210,10 +210,6 @@ class ActivationStateReader
             return false;
         }
 
-        if (count($state['capabilities']) !== count(array_unique($state['capabilities']))) {
-            return false;
-        }
-
         foreach ($state['capabilities'] as $stateCapability) {
             if (
                 ! is_string($stateCapability)
@@ -221,6 +217,10 @@ class ActivationStateReader
             ) {
                 return false;
             }
+        }
+
+        if (count($state['capabilities']) !== count(array_unique($state['capabilities']))) {
+            return false;
         }
 
         $observedAt = $this->parseTimestamp($state['observed_at'] ?? null);
