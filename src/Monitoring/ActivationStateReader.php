@@ -13,19 +13,26 @@ class ActivationStateReader
 
     private const MAXIMUM_CLOCK_SKEW = 30;
 
-    private const ALLOWED_CAPABILITIES = [
-        'health',
-        'metrics',
-        'database',
-        'queue',
-        'scheduler',
-        'info',
+    private const ALLOWED_GRANT_CAPABILITIES = [
+        'server_metrics',
+        'application_metrics',
+        'database_monitoring',
+        'queue_monitoring',
+        'scheduler_monitoring',
         'application_logs',
+    ];
+
+    private const GRANT_TO_BRIDGE_CAPABILITIES = [
+        'application_metrics' => ['health', 'metrics', 'info'],
+        'database_monitoring' => ['database'],
+        'queue_monitoring' => ['queue'],
+        'scheduler_monitoring' => ['scheduler'],
+        'application_logs' => ['application_logs'],
     ];
 
     public function allows(string $capability): bool
     {
-        if (! in_array($capability, self::ALLOWED_CAPABILITIES, true)) {
+        if (! in_array($capability, ['health', 'metrics', 'database', 'queue', 'scheduler', 'info', 'application_logs'], true)) {
             return false;
         }
 
@@ -198,7 +205,7 @@ class ActivationStateReader
             || ($state['grant_acknowledged'] ?? null) !== true
             || ! is_array($state['capabilities'] ?? null)
             || ! array_is_list($state['capabilities'])
-            || ! in_array($capability, $state['capabilities'], true)
+            || ! $this->grantAllowsBridgeCapability($state['capabilities'], $capability)
         ) {
             return false;
         }
@@ -210,7 +217,7 @@ class ActivationStateReader
         foreach ($state['capabilities'] as $stateCapability) {
             if (
                 ! is_string($stateCapability)
-                || ! in_array($stateCapability, self::ALLOWED_CAPABILITIES, true)
+                || ! in_array($stateCapability, self::ALLOWED_GRANT_CAPABILITIES, true)
             ) {
                 return false;
             }
@@ -231,6 +238,24 @@ class ActivationStateReader
             && $validUntilTimestamp > $now
             && $validUntilTimestamp > $observedTimestamp
             && ($validUntilTimestamp - $observedTimestamp) <= self::MAXIMUM_ASSERTION_LIFETIME;
+    }
+
+
+    private function grantAllowsBridgeCapability(array $grantCapabilities, string $bridgeCapability): bool
+    {
+        foreach ($grantCapabilities as $grantCapability) {
+            if (! is_string($grantCapability)) {
+                return false;
+            }
+
+            $bridgeCapabilities = self::GRANT_TO_BRIDGE_CAPABILITIES[$grantCapability] ?? [];
+
+            if (in_array($bridgeCapability, $bridgeCapabilities, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function parseTimestamp(mixed $value): ?DateTimeImmutable
