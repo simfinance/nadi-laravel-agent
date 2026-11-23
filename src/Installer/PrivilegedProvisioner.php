@@ -219,7 +219,7 @@ class PrivilegedProvisioner
                 . DIRECTORY_SEPARATOR
                 . $segment;
             clearstatcache(true, $currentPath);
-            $directoryMetadata = lstat($currentPath);
+            $directoryMetadata = @lstat($currentPath);
 
             if (
                 ! is_array($directoryMetadata)
@@ -234,7 +234,7 @@ class PrivilegedProvisioner
             }
         }
 
-        $metadata = lstat($path);
+        $metadata = @lstat($path);
 
         if (
             ! is_array($metadata)
