@@ -27,9 +27,15 @@ class InstallCommand extends Command
         $this->info('NADI Agent installer');
 
         try {
-            $result = $preflight->inspect(base_path());
+            $applicationManifest = $manifestBuilder->build();
+            $applicationTargets = $manifestBuilder->buildTargets();
+
+            $result = $preflight->inspect(
+                base_path(),
+                $applicationTargets
+            );
             $preflight->assertSupported($result);
-        } catch (RuntimeException $exception) {
+        } catch (Throwable $exception) {
             $this->error($exception->getMessage());
 
             return self::FAILURE;
@@ -98,7 +104,6 @@ class InstallCommand extends Command
 
         try {
             $provisioner->assertAvailable();
-            $applicationManifest = $manifestBuilder->build();
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());
             $this->warn('The verified Agent binary remains in private staging. No privileged command or enrollment was executed.');
@@ -120,8 +125,8 @@ class InstallCommand extends Command
                 $signedRelease,
                 $binaryPath,
                 $applicationManifest,
-                base_path(),
-                $result['php_fpm_identity'],
+                $applicationTargets,
+                $result['php_fpm_identities'],
                 trim($enrollmentToken)
             );
         } catch (Throwable $exception) {
