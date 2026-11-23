@@ -32,8 +32,8 @@ Protocol version 1 state assertion:
     "monitoring_enabled": true,
     "grant_acknowledged": true,
     "capabilities": [
-        "health",
-        "database"
+        "application_metrics",
+        "database_monitoring"
     ],
     "observed_at": "2026-11-22T07:00:00Z",
     "valid_until": "2026-11-22T07:05:00Z"
@@ -78,18 +78,21 @@ An empty capability list grants no endpoint access. Capabilities must be allowli
 
 ## Capability mapping
 
-The Bridge must map each private endpoint to an explicit capability. Initial mapping:
+Central Activation Grant capability names are the canonical values carried in the activation assertion. The Bridge performs an explicit, allowlisted translation to endpoint capabilities:
 
-| Bridge endpoint | Capability |
+| Central grant capability | Bridge endpoint capabilities |
 | --- | --- |
-| `GET /health` | `health` |
-| `GET /metrics` | `metrics` |
-| `GET /database` | `database` |
-| `GET /queue` | `queue` |
-| `GET /scheduler` | `scheduler` |
-| `GET /info` | `info` |
+| `application_metrics` | `health`, `metrics`, `info` |
+| `database_monitoring` | `database` |
+| `queue_monitoring` | `queue` |
+| `scheduler_monitoring` | `scheduler` |
+| `application_logs` | `application_logs` |
+| `server_metrics` | No Bridge endpoint access |
 
-A capability must not be inferred from another capability. The Agent and Central must agree on these names before production use.
+No capability is inferred from another capability. `server_metrics` is server-scoped and never authorizes a Laravel Bridge endpoint. Unknown Central capabilities deny the assertion. The Bridge reader maps only the exact Central capability names above.
+
+The Agent and Bridge must use this same mapping. The broker stores and republishes the Central grant capability list unchanged; it must not broaden or translate permissions.
+
 
 ## Fail-closed behavior
 
