@@ -411,6 +411,8 @@ class PrivilegedProvisioner
                 'broker_configuration',
                 'enrolled',
                 'service_activation',
+                'recovery_required',
+                'rolled_back',
                 'completed',
             ], true)
             || ! is_string($response['enrollment_status'])
