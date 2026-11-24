@@ -229,7 +229,7 @@ class PrivilegedProvisioner
         ]);
 
         $process->setInput($requestBody . "\n");
-        $process->setTimeout(180);
+        $process->setTimeout(360);
         $process->setEnv([
             'NADI_ENROLLMENT_TOKEN' => false,
             'NADI_AGENT_TOKEN' => false,
@@ -246,13 +246,27 @@ class PrivilegedProvisioner
                 );
             }
 
-            if (! $process->isSuccessful()) {
+            try {
+                $response = $this->decodeResponse($process->getOutput());
+            } catch (Throwable $exception) {
                 throw new RuntimeException(
-                    'NADI privileged provisioning failed. No successful installation or enrollment was confirmed.'
+                    'NADI provisioning helper exited without a valid outcome envelope. Central enrollment status is unknown; do not retry enrollment automatically.',
+                    0,
+                    $exception
                 );
             }
 
-            return $this->decodeResponse($process->getOutput());
+            if (! $process->isSuccessful() || $response['success'] !== true) {
+                throw new RuntimeException(sprintf(
+                    'NADI provisioning stopped during phase "%s"; enrollment_status="%s"; retry_safe=%s. %s',
+                    $response['phase'],
+                    $response['enrollment_status'],
+                    $response['retry_safe'] ? 'true' : 'false',
+                    $response['message']
+                ));
+            }
+
+            return $response;
         } finally {
             if (function_exists('sodium_memzero')) {
                 sodium_memzero($requestBody);
@@ -290,9 +304,12 @@ class PrivilegedProvisioner
         $expectedKeys = [
             'protocol_version',
             'success',
-            'agent_version',
+            'phase',
             'enrollment_status',
+            'retry_safe',
+            'agent_version',
             'application_count',
+            'message',
         ];
 
         $actualKeys = array_keys($response);
@@ -305,15 +322,48 @@ class PrivilegedProvisioner
 
         if (
             $response['protocol_version'] !== 1
-            || $response['success'] !== true
+            || ! is_bool($response['success'])
+            || ! is_string($response['phase'])
+            || ! in_array($response['phase'], [
+                'request_validation',
+                'release_verification',
+                'existing_installation',
+                'os_provisioning',
+                'enrollment',
+                'broker_configuration',
+                'service_activation',
+                'completed',
+            ], true)
+            || ! is_string($response['enrollment_status'])
+            || ! in_array($response['enrollment_status'], [
+                'not_started',
+                'unknown',
+                'registered',
+            ], true)
+            || ! is_bool($response['retry_safe'])
             || ! is_string($response['agent_version'])
-            || $response['agent_version'] === ''
-            || $response['enrollment_status'] !== 'registered'
             || ! is_int($response['application_count'])
-            || $response['application_count'] < 1
+            || $response['application_count'] < 0
             || $response['application_count'] > 20
+            || ! is_string($response['message'])
+            || $response['message'] === ''
+            || strlen($response['message']) > 512
         ) {
-            throw new RuntimeException('NADI provisioning helper did not confirm a completed enrollment.');
+            throw new RuntimeException('NADI provisioning helper response values are invalid.');
+        }
+
+        if (
+            ($response['retry_safe'] && $response['enrollment_status'] !== 'not_started')
+            || ($response['success'] && (
+                $response['phase'] !== 'completed'
+                || $response['enrollment_status'] !== 'registered'
+                || $response['retry_safe']
+                || $response['agent_version'] === ''
+                || $response['application_count'] < 1
+            ))
+            || (! $response['success'] && $response['phase'] === 'completed')
+        ) {
+            throw new RuntimeException('NADI provisioning helper outcome consistency check failed.');
         }
 
         return $response;
