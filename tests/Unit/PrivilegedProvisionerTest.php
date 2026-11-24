@@ -112,9 +112,12 @@ class PrivilegedProvisionerTest extends TestCase
         $provisioner->decodeResponse(json_encode([
             'protocol_version' => 1,
             'success' => true,
+            'phase' => 'completed',
+            'enrollment_status' => 'unknown',
+            'retry_safe' => false,
             'agent_version' => '0.7.5',
-            'enrollment_status' => 'pending',
             'application_count' => 1,
+            'message' => 'Invalid completion status.',
         ], JSON_THROW_ON_ERROR));
     }
 
@@ -148,14 +151,17 @@ class PrivilegedProvisionerTest extends TestCase
         $provisioner = new PrivilegedProvisioner();
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('did not confirm a completed enrollment');
+        $this->expectExceptionMessage('outcome consistency check failed');
 
         $provisioner->decodeResponse(json_encode([
             'protocol_version' => 1,
             'success' => true,
-            'agent_version' => '0.7.5',
+            'phase' => 'completed',
             'enrollment_status' => 'registered',
+            'retry_safe' => false,
+            'agent_version' => '0.7.5',
             'application_count' => 0,
+            'message' => 'Invalid application count.',
         ], JSON_THROW_ON_ERROR));
     }
 }
