@@ -1,6 +1,6 @@
 # Privileged Provisioning Boundary
 
-Status: Laravel-side fixed-command adapter implemented. The root-owned helper is still a separately installed prerequisite and is not shipped or bootstrapped by this Composer package.
+Status: Fixed three-operation protocol accepted and Laravel-side adapter implemented. The root-owned helper remains a separately installed prerequisite and is not shipped or bootstrapped by this Composer package.
 
 ## Security boundary
 
@@ -34,7 +34,9 @@ The Bridge may invoke the helper only through a fixed executable argument vector
 
 No shell is used. The request is one bounded JSON document on standard input. The helper must reject unknown fields, unknown operations, duplicate JSON keys, trailing JSON values, oversized input, and unsupported protocol versions.
 
-Protocol version 1 request envelope:
+Protocol version 1 uses three operation-specific request envelopes over the same fixed helper invocation. Each request is a separate bounded JSON document on standard input. The helper rejects unknown fields, unknown operations, duplicate JSON keys, trailing JSON values, oversized requests, and unsupported protocol versions.
+
+### `install_agent` — install only
 
 ```json
 {
@@ -52,13 +54,37 @@ Protocol version 1 request envelope:
             "runtime_uid": 1001,
             "runtime_gid": 1001
         }
-    ],
+    ]
+}
+```
+
+This operation never receives the enrollment token or enrollment manifest. It installs trusted assets and a root-owned, non-secret application inventory, then runs `systemctl daemon-reload`. It does not enroll, enable, or start services.
+
+### `enroll_agent` — one enrollment for the complete inventory
+
+```json
+{
+    "protocol_version": 1,
+    "operation": "enroll_agent",
     "enrollment": {
         "manifest_base64": "<base64 JSON manifest containing all 1-20 applications>",
         "token": "<one-time enrollment token>"
     }
 }
 ```
+
+The token is present only in the request standard input and is forwarded only to the fixed Agent binary's standard input. The helper persists a root-owned non-secret enrollment-attempt marker before invoking Agent. An uncertain attempt without a verified completion record is non-retryable and requires reconciliation.
+
+### `start_agent` — fixed service activation
+
+```json
+{
+    "protocol_version": 1,
+    "operation": "start_agent"
+}
+```
+
+No caller-selected service, unit, path, command, user, group, or file mode is accepted. The helper verifies the root-owned enrollment/broker completion record and Agent state file metadata, then enables and starts only the fixed NADI broker and Agent units.
 
 The Bridge preflight discovers PHP-FPM pool identities from `/etc/php/*/fpm/pool.d/*.conf` and resolves one non-root UID/GID pair for each application target. The current application may infer its identity only when all discovered pools use one unique identity; otherwise its `nadi-agent.runtime_user` and optional `runtime_group` must be configured. Every additional application must declare `base_path`, `base_url`, `application_name`, `environment`, `runtime_user`, and `runtime_group` under `nadi-agent.additional_applications`. Each application must resolve to a distinct non-root runtime UID when per-application credential isolation is required. Shared UIDs represent a shared trust boundary, not isolated credentials. The example UID/GID 1001 is illustrative only. The helper must independently verify that each supplied runtime UID/GID still matches a PHP-FPM pool before registering the Bridge destination.
 
@@ -90,7 +116,7 @@ After enrollment, the Bridge must verify a successful process exit and a non-sec
 
 The service may be enabled and started after enrollment succeeds so the Agent can perform Control Poll. Monitoring remains blocked by the Go Agent Runtime Activation Gate until Central approval, a valid signed Activation Grant, and accepted Grant acknowledgement are all present.
 
-The helper should expose a separate fixed operation for enabling and starting the known `nadi-agent.service` unit. It must not accept an arbitrary unit name.
+The accepted lifecycle exposes separate fixed `install_agent`, `enroll_agent`, and `start_agent` operations. The helper must not accept an arbitrary unit name.
 
 ## Unresolved application credential handoff
 
@@ -115,8 +141,8 @@ Until the separately installed helper, its exact sudoers policy, helper implemen
 
 The protocol v1 example currently places the enrollment token inside the `install_agent` request envelope. However, the allowed-effects section above states that `install_agent` must not enroll the Agent, and the service lifecycle section requires a separate fixed operation for enabling and starting `nadi-agent.service`. These requirements are not yet represented by one consistent operation contract.
 
-Recommended resolution for approval: use three fixed operations under the same exact `--request-stdin` invocation: `install_agent` (verify and install only), `enroll_agent` (run the Agent enrollment as `nadi-agent`, token delivered only on stdin, then consume only the non-secret summary and configure broker mappings), and `start_agent` (enable/start only the fixed NADI services after verifying the registered state and broker mapping). Each operation must have a strict operation-specific schema and bounded outcome response. A failed or uncertain `enroll_agent` result must be non-retryable unless the Agent confirms that the exact persisted request can safely be replayed.
+Accepted resolution: use three fixed operations under the same exact `--request-stdin` invocation: `install_agent` (verify and install only), `enroll_agent` (run the Agent enrollment as `nadi-agent`, token delivered only on stdin, then consume only the non-secret summary and configure broker mappings), and `start_agent` (enable/start only the fixed NADI services after verifying the registered state and broker mapping). Each operation must have a strict operation-specific schema and bounded outcome response. A failed or uncertain `enroll_agent` result must be non-retryable unless the Agent confirms that the exact persisted request can safely be replayed.
 
-This is a proposed contract clarification, not an approved architecture change. Until the operation contract is approved and the Bridge adapter and helper implement it consistently, the helper must remain unavailable to the customer installer and the Bridge must remain fail-closed.
+The project owner approved this contract clarification on 2026-11-24. The Agent helper and Bridge adapter are being updated to implement it consistently. The helper remains unavailable to production until trusted packaging, rollback, and integration validation are complete.
 
-The detailed proposed operation contract is recorded in [Agent ADR-0002](https://github.com/simfinance/nadi-agent/blob/feature/bridge-activation-publisher/docs/adr/ADR-0002-provisioning-helper-operation-lifecycle.md). It remains proposed and is not an implementation authorization.
+The detailed proposed operation contract is recorded in [Agent ADR-0002](https://github.com/simfinance/nadi-agent/blob/feature/bridge-activation-publisher/docs/adr/ADR-0002-provisioning-helper-operation-lifecycle.md). It is accepted for implementation; acceptance does not waive release validation.
