@@ -118,13 +118,11 @@ The service may be enabled and started after enrollment succeeds so the Agent ca
 
 The accepted lifecycle exposes separate fixed `install_agent`, `enroll_agent`, and `start_agent` operations. The helper must not accept an arbitrary unit name.
 
-## Unresolved application credential handoff
+## Installer-managed application credential identity
 
-The Go Agent persists each application's Central-issued application credential in its private Agent state. The Laravel Bridge also requires the corresponding application credential for its private `/_nadi/v1` endpoint.
+The Go Agent credential producer, root-owned Unix-socket broker, per-application destination mapping, and Bridge-side credential authorization source are implemented on the feature branches. The helper's enrollment operation installs the broker mapping only after Central registration is confirmed. The helper and Bridge must never solve credential transfer by reading or parsing `state.json`, exposing credentials in process output, writing credentials into command-line arguments, or placing credentials in environment variables.
 
-A secure, narrowly scoped credential handoff from Agent to Bridge has not yet been defined. The implementation must not solve this by reading or parsing `state.json`, exposing credentials in process output, writing credentials into command-line arguments, or placing credentials in environment variables.
-
-This is a release-blocking integration dependency. Define a dedicated authenticated local handoff (for example, a narrowly scoped Unix-domain socket protocol with peer-credential checks and atomic Bridge-side credential storage) before connecting enrollment to the customer installer.
+The remaining release-blocking work is to finish installer-managed Bridge identity configuration (`application_id`, `application_key`, credential path, and activation-state path) without silently editing client application configuration, then verify the complete producer-to-Bridge flow in root/non-root and end-to-end tests.
 
 ## Fail-closed requirements
 
