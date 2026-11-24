@@ -139,10 +139,10 @@ Until the separately installed helper, its exact sudoers policy, helper implemen
 
 ## Protocol clarification required before helper integration
 
-The protocol v1 example currently places the enrollment token inside the `install_agent` request envelope. However, the allowed-effects section above states that `install_agent` must not enroll the Agent, and the service lifecycle section requires a separate fixed operation for enabling and starting `nadi-agent.service`. These requirements are not yet represented by one consistent operation contract.
+The original protocol v1 draft placed the enrollment token inside the `install_agent` request envelope, which conflicted with the rule that installation must not enroll the Agent. The accepted operation-specific request schemas above resolve that inconsistency: install accepts release plus inventory only; enrollment accepts the complete manifest plus one-time token only; service activation accepts no caller-selected fields.
 
 Accepted resolution: use three fixed operations under the same exact `--request-stdin` invocation: `install_agent` (verify and install only), `enroll_agent` (run the Agent enrollment as `nadi-agent`, token delivered only on stdin, then consume only the non-secret summary and configure broker mappings), and `start_agent` (enable/start only the fixed NADI services after verifying the registered state and broker mapping). Each operation must have a strict operation-specific schema and bounded outcome response. A failed or uncertain `enroll_agent` result must be non-retryable unless the Agent confirms that the exact persisted request can safely be replayed.
 
 The project owner approved this contract clarification on 2026-11-24. The Agent helper and Bridge adapter are being updated to implement it consistently. The helper remains unavailable to production until trusted packaging, rollback, and integration validation are complete.
 
-The detailed proposed operation contract is recorded in [Agent ADR-0002](https://github.com/simfinance/nadi-agent/blob/feature/bridge-activation-publisher/docs/adr/ADR-0002-provisioning-helper-operation-lifecycle.md). It is accepted for implementation; acceptance does not waive release validation.
+The accepted operation contract is recorded in [Agent ADR-0002](https://github.com/simfinance/nadi-agent/blob/feature/bridge-activation-publisher/docs/adr/ADR-0002-provisioning-helper-operation-lifecycle.md). Its implementation remains subject to release validation.
