@@ -60,13 +60,13 @@ return [
      * Application credential is stored outside the webroot. The installer
      * provisions this file and its ownership/permissions.
      */
-    'credential_file' => storage_path('app/private/nadi/credential'),
+    'credential_file' => env('NADI_CREDENTIAL_FILE'),
 
     /*
      * Root-owned activation assertion published by the local handoff broker.
      * Null deliberately denies activation until provisioning configures it.
      */
-    'activation_state_file' => null,
+    'activation_state_file' => env('NADI_ACTIVATION_STATE_FILE'),
 
     'activation_application_id' => null,
 
