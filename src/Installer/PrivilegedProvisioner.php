@@ -210,11 +210,15 @@ class PrivilegedProvisioner
                 'applications' => $applicationRequests,
             ]);
 
-            if (
-                $installed['phase'] !== 'installed'
-                || $installed['enrollment_status'] !== 'not_started'
-                || ! $installed['retry_safe']
-            ) {
+            $freshInstall = $installed['phase'] === 'installed'
+                && $installed['enrollment_status'] === 'not_started'
+                && $installed['retry_safe'];
+
+            $verifiedExistingEnrollment = $installed['phase'] === 'enrolled'
+                && $installed['enrollment_status'] === 'registered'
+                && ! $installed['retry_safe'];
+
+            if (! $freshInstall && ! $verifiedExistingEnrollment) {
                 throw new RuntimeException('NADI install_agent operation returned an inconsistent outcome.');
             }
 
