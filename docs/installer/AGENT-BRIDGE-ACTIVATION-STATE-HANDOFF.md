@@ -58,7 +58,7 @@ The assertion is an internal status handoff, not a replacement Activation Grant 
 The broker writes one state file per registered application under a fixed root-owned runtime directory, for example:
 
 ```text
-/run/nadi-agent/bridge-state/<application-key>.json
+/run/nadi/bridge-state/<application-key>.json
 ```
 
 The actual filename and Bridge-readable access mechanism must be fixed by root-owned application mapping, not chosen by request input. The broker must use atomic replacement, reject symlinks and unexpected file types, and never expose secrets in this state file.
