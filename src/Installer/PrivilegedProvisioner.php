@@ -35,7 +35,7 @@ class PrivilegedProvisioner
         array $applicationManifest,
         array $applicationTargets,
         array $runtimeIdentities,
-        string $enrollmentToken
+        callable $enrollmentTokenProvider
     ): array {
         $this->assertAvailable();
 
@@ -49,10 +49,6 @@ class PrivilegedProvisioner
             || $signature === ''
         ) {
             throw new RuntimeException('Verified signed release material is incomplete.');
-        }
-
-        if (! preg_match('/^nadi_enroll_[a-f0-9]{64}$/D', $enrollmentToken)) {
-            throw new RuntimeException('Enrollment token format is invalid.');
         }
 
         $manifestApplications = $applicationManifest['applications'] ?? null;
@@ -192,15 +188,14 @@ class PrivilegedProvisioner
             'signature_base64' => $signature,
             'artifact_path' => $resolvedArtifactPath,
         ];
-        $enrollmentPayload = [
-            'manifest_base64' => base64_encode(
-                json_encode(
-                    $applicationManifest,
-                    JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
-                )
-            ),
-            'token' => $enrollmentToken,
-        ];
+        $enrollmentManifestBase64 = base64_encode(
+            json_encode(
+                $applicationManifest,
+                JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            )
+        );
+        $enrollmentToken = null;
+        $enrollmentPayload = null;
 
         try {
             $installed = $this->invokeOperation([
@@ -222,18 +217,34 @@ class PrivilegedProvisioner
                 throw new RuntimeException('NADI install_agent operation returned an inconsistent outcome.');
             }
 
-            $enrolled = $this->invokeOperation([
-                'protocol_version' => 1,
-                'operation' => 'enroll_agent',
-                'enrollment' => $enrollmentPayload,
-            ]);
+            if ($freshInstall) {
+                $enrollmentToken = $enrollmentTokenProvider();
 
-            if (
-                $enrolled['phase'] !== 'enrolled'
-                || $enrolled['enrollment_status'] !== 'registered'
-                || $enrolled['retry_safe']
-            ) {
-                throw new RuntimeException('NADI enroll_agent operation returned an inconsistent outcome. Do not retry enrollment automatically.');
+                if (
+                    ! is_string($enrollmentToken)
+                    || ! preg_match('/^nadi_enroll_[a-f0-9]{64}$/D', $enrollmentToken)
+                ) {
+                    throw new RuntimeException('A valid one-time NADI enrollment token is required.');
+                }
+
+                $enrollmentPayload = [
+                    'manifest_base64' => $enrollmentManifestBase64,
+                    'token' => $enrollmentToken,
+                ];
+
+                $enrolled = $this->invokeOperation([
+                    'protocol_version' => 1,
+                    'operation' => 'enroll_agent',
+                    'enrollment' => $enrollmentPayload,
+                ]);
+
+                if (
+                    $enrolled['phase'] !== 'enrolled'
+                    || $enrolled['enrollment_status'] !== 'registered'
+                    || $enrolled['retry_safe']
+                ) {
+                    throw new RuntimeException('NADI enroll_agent operation returned an inconsistent outcome. Do not retry enrollment automatically.');
+                }
             }
 
             $started = $this->invokeOperation([
@@ -252,11 +263,16 @@ class PrivilegedProvisioner
             return $started;
         } finally {
             if (function_exists('sodium_memzero')) {
-                sodium_memzero($enrollmentToken);
-                sodium_memzero($enrollmentPayload['token']);
+                if (is_string($enrollmentToken)) {
+                    sodium_memzero($enrollmentToken);
+                }
+
+                if (is_array($enrollmentPayload) && isset($enrollmentPayload['token'])) {
+                    sodium_memzero($enrollmentPayload['token']);
+                }
             }
 
-            unset($enrollmentPayload, $releasePayload);
+            unset($enrollmentPayload, $enrollmentManifestBase64, $releasePayload);
         }
     }
 
