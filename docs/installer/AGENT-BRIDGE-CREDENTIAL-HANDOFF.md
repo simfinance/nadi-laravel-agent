@@ -22,7 +22,7 @@ The handoff broker is a separately installed root-owned component. It is not shi
 Use a local Unix-domain stream socket at:
 
 ```text
-/run/nadi-agent/credential-handoff.sock
+/run/nadi/credential-handoff.sock
 ```
 
 The socket is created by a root-owned systemd socket unit. The broker must obtain peer credentials from the kernel (for Linux, `SO_PEERCRED`) and accept requests only from the configured `nadi-agent` UID. Do not trust a UID, username, PID, or role asserted in the JSON request.
