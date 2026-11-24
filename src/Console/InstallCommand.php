@@ -111,15 +111,6 @@ class InstallCommand extends Command
             return self::FAILURE;
         }
 
-        $enrollmentToken = $this->secret('Enter the one-time NADI enrollment token');
-
-        if (! is_string($enrollmentToken) || trim($enrollmentToken) === '') {
-            $this->error('Enrollment token is required.');
-            $this->warn('No privileged command or enrollment was executed.');
-
-            return self::FAILURE;
-        }
-
         try {
             $provisioned = $provisioner->installAgent(
                 $signedRelease,
@@ -127,18 +118,13 @@ class InstallCommand extends Command
                 $applicationManifest,
                 $applicationTargets,
                 $result['php_fpm_identities'],
-                trim($enrollmentToken)
+                fn (): string => (string) $this->secret('Enter the one-time NADI enrollment token')
             );
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());
             $this->warn('Do not enable monitoring manually. Verify the provisioning helper and rollback state before retrying.');
 
             return self::FAILURE;
-        } finally {
-            if (function_exists('sodium_memzero')) {
-                sodium_memzero($enrollmentToken);
-            }
-            unset($enrollmentToken);
         }
 
         $this->line('<fg=green>PASS</> privileged_agent_provisioning');
