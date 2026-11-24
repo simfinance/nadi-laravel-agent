@@ -279,7 +279,8 @@ class PrivilegedProvisioner
             '--request-stdin',
         ]);
 
-        $process->setInput($requestBody . "\n");
+        $stdin = $requestBody . "\n";
+        $process->setInput($stdin);
         $process->setTimeout(360);
         $process->setEnv([
             'NADI_ENROLLMENT_TOKEN' => false,
@@ -322,6 +323,7 @@ class PrivilegedProvisioner
         } finally {
             if (function_exists('sodium_memzero')) {
                 sodium_memzero($requestBody);
+                sodium_memzero($stdin);
 
                 if (isset($request['enrollment']['token'])) {
                     sodium_memzero($request['enrollment']['token']);
