@@ -30,13 +30,56 @@ class PrivilegedProvisionerTest extends TestCase
         $response = $provisioner->decodeResponse(json_encode([
             'protocol_version' => 1,
             'success' => true,
-            'agent_version' => '0.7.5',
+            'phase' => 'completed',
             'enrollment_status' => 'registered',
+            'retry_safe' => false,
+            'agent_version' => '0.7.5',
             'application_count' => 1,
+            'message' => 'NADI Agent enrollment and service startup completed.',
         ], JSON_THROW_ON_ERROR));
 
         self::assertSame('registered', $response['enrollment_status']);
         self::assertSame(1, $response['application_count']);
+    }
+
+
+    public function test_it_accepts_a_non_retryable_partial_enrollment_outcome(): void
+    {
+        $provisioner = new PrivilegedProvisioner();
+
+        $response = $provisioner->decodeResponse(json_encode([
+            'protocol_version' => 1,
+            'success' => false,
+            'phase' => 'enrollment',
+            'enrollment_status' => 'unknown',
+            'retry_safe' => false,
+            'agent_version' => 'unknown',
+            'application_count' => 2,
+            'message' => 'Central enrollment outcome is uncertain.',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertFalse($response['success']);
+        self::assertSame('unknown', $response['enrollment_status']);
+        self::assertFalse($response['retry_safe']);
+    }
+
+    public function test_it_rejects_a_retry_safe_outcome_after_enrollment_started(): void
+    {
+        $provisioner = new PrivilegedProvisioner();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('outcome consistency check failed');
+
+        $provisioner->decodeResponse(json_encode([
+            'protocol_version' => 1,
+            'success' => false,
+            'phase' => 'enrollment',
+            'enrollment_status' => 'unknown',
+            'retry_safe' => true,
+            'agent_version' => 'unknown',
+            'application_count' => 1,
+            'message' => 'Outcome uncertain.',
+        ], JSON_THROW_ON_ERROR));
     }
 
     public function test_it_rejects_unknown_response_fields(): void
@@ -49,9 +92,12 @@ class PrivilegedProvisionerTest extends TestCase
         $provisioner->decodeResponse(json_encode([
             'protocol_version' => 1,
             'success' => true,
-            'agent_version' => '0.7.5',
+            'phase' => 'completed',
             'enrollment_status' => 'registered',
+            'retry_safe' => false,
+            'agent_version' => '0.7.5',
             'application_count' => 1,
+            'message' => 'NADI Agent enrollment and service startup completed.',
             'agent_credential' => 'must-not-be-returned',
         ], JSON_THROW_ON_ERROR));
     }
@@ -61,7 +107,7 @@ class PrivilegedProvisionerTest extends TestCase
         $provisioner = new PrivilegedProvisioner();
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('did not confirm a completed enrollment');
+        $this->expectExceptionMessage('outcome consistency check failed');
 
         $provisioner->decodeResponse(json_encode([
             'protocol_version' => 1,
