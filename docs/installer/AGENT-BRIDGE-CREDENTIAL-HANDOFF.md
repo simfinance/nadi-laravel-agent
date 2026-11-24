@@ -1,6 +1,6 @@
 # Agent-to-Bridge Application Credential Handoff
 
-Status: protocol contract for cross-repository implementation. This document does not implement or enable the handoff.
+Status: source protocol implemented across the Agent broker and Bridge authorization path. This document records the contract; it does not claim that the privileged helper is packaged, installed, or production-enabled.
 
 ## Purpose
 
@@ -127,4 +127,4 @@ Required tests include:
 
 This protocol requires coordinated implementation in the Go Agent and the separately installed privileged broker. The Laravel Bridge repository alone cannot safely complete the producer, peer-authentication, and root-owned destination mapping.
 
-Until the Go Agent producer, broker, Bridge-side activation state contract, and end-to-end tests exist, the customer installer must remain fail-closed and must not claim secure enrollment completion.
+The Agent producer and root-owned broker source, Bridge-side credential authorization, and activation-state checks are implemented on the current feature branches. The privileged lifecycle now provisions the broker mapping after confirmed enrollment. Remaining integration gates include trusted helper packaging/installation, final per-application Bridge environment identity provisioning, root/non-root and systemd tests, credential rotation/revocation validation, and full end-to-end tests. Until those gates pass, the customer installer must remain fail-closed and must not claim production-ready secure enrollment.
