@@ -279,7 +279,7 @@ class PrivilegedProvisioner
             '--request-stdin',
         ]);
 
-        $process->setInput($requestBody . "\\n");
+        $process->setInput($requestBody . "\n");
         $process->setTimeout(360);
         $process->setEnv([
             'NADI_ENROLLMENT_TOKEN' => false,
