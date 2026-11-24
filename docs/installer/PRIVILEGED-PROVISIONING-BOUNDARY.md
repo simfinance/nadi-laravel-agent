@@ -71,7 +71,7 @@ The Activation Grant public key and systemd unit are trust-sensitive resources. 
 The helper's `install_agent` operation may only:
 
 - Create the dedicated `nadi-agent` system user and group if absent, after validating that any existing account matches the expected non-login service-account policy.
-- Create and secure the fixed Agent directories under `/etc/nadi-agent`, `/var/lib/nadi-agent`, and `/opt/nadi/bin`.
+- Create and secure the canonical Agent directories `/opt/nadi`, `/etc/nadi`, `/var/lib/nadi`, `/var/log/nadi`, and `/run/nadi`, as required by Master Architecture section 10.4. The Bridge credential root `/var/lib/nadi-bridge/{application_id}` remains a separate per-application security boundary.
 - Install the independently verified Agent binary atomically as `/opt/nadi/bin/nadi-agent`.
 - Install the helper-bundled Activation Grant public key and systemd unit.
 - Write a strictly validated Agent environment file containing only non-secret configuration.
@@ -109,3 +109,12 @@ Until the separately installed helper, its exact sudoers policy, helper implemen
 - No Agent enrollment is submitted.
 - No systemd service is enabled or started.
 - No operational monitoring or telemetry is started.
+
+
+## Protocol clarification required before helper integration
+
+The protocol v1 example currently places the enrollment token inside the `install_agent` request envelope. However, the allowed-effects section above states that `install_agent` must not enroll the Agent, and the service lifecycle section requires a separate fixed operation for enabling and starting `nadi-agent.service`. These requirements are not yet represented by one consistent operation contract.
+
+Recommended resolution for approval: use three fixed operations under the same exact `--request-stdin` invocation: `install_agent` (verify and install only), `enroll_agent` (run the Agent enrollment as `nadi-agent`, token delivered only on stdin, then consume only the non-secret summary and configure broker mappings), and `start_agent` (enable/start only the fixed NADI services after verifying the registered state and broker mapping). Each operation must have a strict operation-specific schema and bounded outcome response. A failed or uncertain `enroll_agent` result must be non-retryable unless the Agent confirms that the exact persisted request can safely be replayed.
+
+This is a proposed contract clarification, not an approved architecture change. Until the operation contract is approved and the Bridge adapter and helper implement it consistently, the helper must remain unavailable to the customer installer and the Bridge must remain fail-closed.
