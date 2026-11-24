@@ -26,6 +26,8 @@ The helper must be owned by root, must not be writable by group or other users, 
 
 ## Invocation protocol
 
+For a fresh install, the Artisan command runs `install_agent` first and prompts for the one-time enrollment token only after that operation confirms a fresh installation. If the helper confirms a matching existing enrollment/completion record, the installer must not request or send a new token; it proceeds directly to the fixed service activation operation. This preserves idempotent recovery without consuming a second enrollment token.
+
 The Bridge may invoke the helper only through a fixed executable argument vector equivalent to:
 
 ```text
