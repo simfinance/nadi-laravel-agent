@@ -63,6 +63,48 @@ class PrivilegedProvisionerTest extends TestCase
         self::assertFalse($response['retry_safe']);
     }
 
+    public function test_it_accepts_a_recovery_required_failure_outcome(): void
+    {
+        $provisioner = new PrivilegedProvisioner();
+
+        $response = $provisioner->decodeResponse(json_encode([
+            'protocol_version' => 1,
+            'success' => false,
+            'phase' => 'recovery_required',
+            'enrollment_status' => 'unknown',
+            'retry_safe' => false,
+            'agent_version' => '0.7.5',
+            'application_count' => 2,
+            'message' => 'Existing Agent identity requires manual reconciliation.',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertFalse($response['success']);
+        self::assertSame('recovery_required', $response['phase']);
+        self::assertSame('unknown', $response['enrollment_status']);
+        self::assertFalse($response['retry_safe']);
+    }
+
+    public function test_it_accepts_a_rolled_back_failure_outcome(): void
+    {
+        $provisioner = new PrivilegedProvisioner();
+
+        $response = $provisioner->decodeResponse(json_encode([
+            'protocol_version' => 1,
+            'success' => false,
+            'phase' => 'rolled_back',
+            'enrollment_status' => 'not_started',
+            'retry_safe' => true,
+            'agent_version' => '0.7.5',
+            'application_count' => 2,
+            'message' => 'Transaction-created files and directories were rolled back.',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertFalse($response['success']);
+        self::assertSame('rolled_back', $response['phase']);
+        self::assertSame('not_started', $response['enrollment_status']);
+        self::assertTrue($response['retry_safe']);
+    }
+
     public function test_it_rejects_a_retry_safe_outcome_after_enrollment_started(): void
     {
         $provisioner = new PrivilegedProvisioner();
