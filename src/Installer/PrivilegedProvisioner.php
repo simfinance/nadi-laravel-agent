@@ -187,26 +187,77 @@ class PrivilegedProvisioner
             throw new RuntimeException('Agent artifact staging path is unsafe.');
         }
 
-        $request = [
-            'protocol_version' => 1,
-            'operation' => 'install_agent',
-            'release' => [
-                'manifest_base64' => base64_encode($manifestJson),
-                'signature_base64' => $signature,
-                'artifact_path' => $resolvedArtifactPath,
-            ],
-            'applications' => $applicationRequests,
-            'enrollment' => [
-                'manifest_base64' => base64_encode(
-                    json_encode(
-                        $applicationManifest,
-                        JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
-                    )
-                ),
-                'token' => $enrollmentToken,
-            ],
+        $releasePayload = [
+            'manifest_base64' => base64_encode($manifestJson),
+            'signature_base64' => $signature,
+            'artifact_path' => $resolvedArtifactPath,
+        ];
+        $enrollmentPayload = [
+            'manifest_base64' => base64_encode(
+                json_encode(
+                    $applicationManifest,
+                    JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+                )
+            ),
+            'token' => $enrollmentToken,
         ];
 
+        try {
+            $installed = $this->invokeOperation([
+                'protocol_version' => 1,
+                'operation' => 'install_agent',
+                'release' => $releasePayload,
+                'applications' => $applicationRequests,
+            ]);
+
+            if (
+                $installed['phase'] !== 'installed'
+                || $installed['enrollment_status'] !== 'not_started'
+                || ! $installed['retry_safe']
+            ) {
+                throw new RuntimeException('NADI install_agent operation returned an inconsistent outcome.');
+            }
+
+            $enrolled = $this->invokeOperation([
+                'protocol_version' => 1,
+                'operation' => 'enroll_agent',
+                'enrollment' => $enrollmentPayload,
+            ]);
+
+            if (
+                $enrolled['phase'] !== 'enrolled'
+                || $enrolled['enrollment_status'] !== 'registered'
+                || $enrolled['retry_safe']
+            ) {
+                throw new RuntimeException('NADI enroll_agent operation returned an inconsistent outcome. Do not retry enrollment automatically.');
+            }
+
+            $started = $this->invokeOperation([
+                'protocol_version' => 1,
+                'operation' => 'start_agent',
+            ]);
+
+            if (
+                $started['phase'] !== 'completed'
+                || $started['enrollment_status'] !== 'registered'
+                || $started['retry_safe']
+            ) {
+                throw new RuntimeException('NADI start_agent operation returned an inconsistent outcome.');
+            }
+
+            return $started;
+        } finally {
+            if (function_exists('sodium_memzero')) {
+                sodium_memzero($enrollmentToken);
+                sodium_memzero($enrollmentPayload['token']);
+            }
+
+            unset($enrollmentPayload, $releasePayload);
+        }
+    }
+
+    private function invokeOperation(array $request): array
+    {
         try {
             $requestBody = json_encode(
                 $request,
@@ -228,7 +279,7 @@ class PrivilegedProvisioner
             '--request-stdin',
         ]);
 
-        $process->setInput($requestBody . "\n");
+        $process->setInput($requestBody . "\\n");
         $process->setTimeout(360);
         $process->setEnv([
             'NADI_ENROLLMENT_TOKEN' => false,
@@ -240,7 +291,7 @@ class PrivilegedProvisioner
                 $process->run();
             } catch (Throwable $exception) {
                 throw new RuntimeException(
-                    'NADI privileged provisioning could not be completed.',
+                    'NADI privileged provisioning operation could not be completed. If enrollment may have started, do not retry with a new token.',
                     0,
                     $exception
                 );
@@ -250,7 +301,7 @@ class PrivilegedProvisioner
                 $response = $this->decodeResponse($process->getOutput());
             } catch (Throwable $exception) {
                 throw new RuntimeException(
-                    'NADI provisioning helper exited without a valid outcome envelope. Central enrollment status is unknown; do not retry enrollment automatically.',
+                    'NADI provisioning helper exited without a valid outcome envelope. Enrollment status may be unknown; do not retry enrollment automatically.',
                     0,
                     $exception
                 );
@@ -258,7 +309,8 @@ class PrivilegedProvisioner
 
             if (! $process->isSuccessful() || $response['success'] !== true) {
                 throw new RuntimeException(sprintf(
-                    'NADI provisioning stopped during phase "%s"; enrollment_status="%s"; retry_safe=%s. %s',
+                    'NADI provisioning operation "%s" stopped during phase "%s"; enrollment_status="%s"; retry_safe=%s. %s',
+                    $request['operation'],
                     $response['phase'],
                     $response['enrollment_status'],
                     $response['retry_safe'] ? 'true' : 'false',
@@ -270,7 +322,10 @@ class PrivilegedProvisioner
         } finally {
             if (function_exists('sodium_memzero')) {
                 sodium_memzero($requestBody);
-                sodium_memzero($request['enrollment']['token']);
+
+                if (isset($request['enrollment']['token'])) {
+                    sodium_memzero($request['enrollment']['token']);
+                }
             }
 
             unset($process, $requestBody, $request);
@@ -329,8 +384,10 @@ class PrivilegedProvisioner
                 'release_verification',
                 'existing_installation',
                 'os_provisioning',
+                'installed',
                 'enrollment',
                 'broker_configuration',
+                'enrolled',
                 'service_activation',
                 'completed',
             ], true)
@@ -355,13 +412,19 @@ class PrivilegedProvisioner
         if (
             ($response['retry_safe'] && $response['enrollment_status'] !== 'not_started')
             || ($response['success'] && (
-                $response['phase'] !== 'completed'
-                || $response['enrollment_status'] !== 'registered'
-                || $response['retry_safe']
+                ! in_array($response['phase'], ['installed', 'enrolled', 'completed'], true)
                 || $response['agent_version'] === ''
                 || $response['application_count'] < 1
+                || ($response['phase'] === 'installed' && (
+                    $response['enrollment_status'] !== 'not_started'
+                    || ! $response['retry_safe']
+                ))
+                || (in_array($response['phase'], ['enrolled', 'completed'], true) && (
+                    $response['enrollment_status'] !== 'registered'
+                    || $response['retry_safe']
+                ))
             ))
-            || (! $response['success'] && $response['phase'] === 'completed')
+            || (! $response['success'] && in_array($response['phase'], ['installed', 'enrolled', 'completed'], true))
         ) {
             throw new RuntimeException('NADI provisioning helper outcome consistency check failed.');
         }
