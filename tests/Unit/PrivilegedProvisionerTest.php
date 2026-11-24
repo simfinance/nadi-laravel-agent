@@ -164,4 +164,63 @@ class PrivilegedProvisionerTest extends TestCase
             'message' => 'Invalid application count.',
         ], JSON_THROW_ON_ERROR));
     }
+
+    public function test_it_accepts_a_successful_install_only_response(): void
+    {
+        $provisioner = new PrivilegedProvisioner();
+
+        $response = $provisioner->decodeResponse(json_encode([
+            'protocol_version' => 1,
+            'success' => true,
+            'phase' => 'installed',
+            'enrollment_status' => 'not_started',
+            'retry_safe' => true,
+            'agent_version' => '0.7.5',
+            'application_count' => 2,
+            'message' => 'NADI Agent assets installed; enrollment has not started.',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertSame('installed', $response['phase']);
+        self::assertSame('not_started', $response['enrollment_status']);
+        self::assertTrue($response['retry_safe']);
+    }
+
+    public function test_it_accepts_a_successful_enrollment_without_service_startup(): void
+    {
+        $provisioner = new PrivilegedProvisioner();
+
+        $response = $provisioner->decodeResponse(json_encode([
+            'protocol_version' => 1,
+            'success' => true,
+            'phase' => 'enrolled',
+            'enrollment_status' => 'registered',
+            'retry_safe' => false,
+            'agent_version' => '0.7.5',
+            'application_count' => 2,
+            'message' => 'NADI Agent enrollment and broker configuration completed.',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertSame('enrolled', $response['phase']);
+        self::assertSame('registered', $response['enrollment_status']);
+        self::assertFalse($response['retry_safe']);
+    }
+
+    public function test_it_rejects_an_install_response_that_claims_enrollment_started(): void
+    {
+        $provisioner = new PrivilegedProvisioner();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('outcome consistency check failed');
+
+        $provisioner->decodeResponse(json_encode([
+            'protocol_version' => 1,
+            'success' => true,
+            'phase' => 'installed',
+            'enrollment_status' => 'registered',
+            'retry_safe' => false,
+            'agent_version' => '0.7.5',
+            'application_count' => 1,
+            'message' => 'Invalid install phase.',
+        ], JSON_THROW_ON_ERROR));
+    }
 }
