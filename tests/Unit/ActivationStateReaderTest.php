@@ -115,6 +115,26 @@ class ActivationStateReaderTest extends TestCase
         self::assertFalse($this->validateState($state, 'info'));
     }
 
+    public function test_system_logs_capability_does_not_block_application_metrics_access(): void
+    {
+        $state = $this->activeState();
+        $state['capabilities'] = ['application_metrics', 'system_logs'];
+
+        self::assertTrue($this->validateState($state, 'health'));
+        self::assertTrue($this->validateState($state, 'metrics'));
+        self::assertFalse($this->validateState($state, 'database'));
+    }
+
+    public function test_system_logs_capability_does_not_authorize_a_bridge_endpoint(): void
+    {
+        $state = $this->activeState();
+        $state['capabilities'] = ['system_logs'];
+
+        self::assertFalse($this->validateState($state, 'health'));
+        self::assertFalse($this->validateState($state, 'metrics'));
+        self::assertFalse($this->validateState($state, 'database'));
+    }
+
     public function test_server_metrics_grant_does_not_authorize_a_bridge_endpoint(): void
     {
         $state = $this->activeState();
