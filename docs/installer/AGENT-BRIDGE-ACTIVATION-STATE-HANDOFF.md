@@ -88,6 +88,7 @@ Central Activation Grant capability names are the canonical values carried in th
 | `scheduler_monitoring` | `scheduler` |
 | `application_logs` | `application_logs` |
 | `server_metrics` | No Bridge endpoint access |
+| `system_logs` | No Bridge endpoint access |
 
 No capability is inferred from another capability. `server_metrics` is server-scoped and never authorizes a Laravel Bridge endpoint. Unknown Central capabilities deny the assertion. The Bridge reader maps only the exact Central capability names above.
 
