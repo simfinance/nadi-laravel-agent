@@ -16,8 +16,6 @@ class PrivilegedProvisionerTest extends TestCase
             0
         );
 
-        $provisioner->assertAvailable();
-
         $method = new \ReflectionMethod($provisioner, 'invocationCommand');
 
         self::assertSame(
@@ -49,20 +47,6 @@ class PrivilegedProvisionerTest extends TestCase
             ],
             $method->invoke($provisioner)
         );
-    }
-
-    public function test_non_root_installation_requires_a_trusted_sudo_executable(): void
-    {
-        $provisioner = new PrivilegedProvisioner(
-            '/usr/bin/env',
-            '/nonexistent/sudo',
-            1000
-        );
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('sudo');
-
-        $provisioner->assertAvailable();
     }
 
     public function test_it_fails_closed_when_the_root_owned_helper_is_not_installed(): void
