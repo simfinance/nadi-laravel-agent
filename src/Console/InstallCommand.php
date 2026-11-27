@@ -3,10 +3,13 @@
 namespace Nadi\LaravelAgent\Console;
 
 use Illuminate\Console\Command;
+use Nadi\LaravelAgent\Installer\EnrollmentManifestBuilder;
 use Nadi\LaravelAgent\Installer\Preflight;
+use Nadi\LaravelAgent\Installer\PrivilegedProvisioner;
 use Nadi\LaravelAgent\Installer\ReleaseArtifactDownloader;
 use Nadi\LaravelAgent\Installer\ReleaseManifestClient;
 use RuntimeException;
+use Throwable;
 
 class InstallCommand extends Command
 {
@@ -17,15 +20,45 @@ class InstallCommand extends Command
     public function handle(
         Preflight $preflight,
         ReleaseManifestClient $releaseManifestClient,
-        ReleaseArtifactDownloader $artifactDownloader
+        ReleaseArtifactDownloader $artifactDownloader,
+        EnrollmentManifestBuilder $manifestBuilder,
+        PrivilegedProvisioner $provisioner
     ): int {
         $this->info('NADI Agent installer');
 
         try {
-            $result = $preflight->inspect(base_path());
+            $applicationManifest = $manifestBuilder->build();
+            $applicationTargets = $manifestBuilder->buildTargets();
+
+            $result = $preflight->inspect(
+                base_path(),
+                $applicationTargets
+            );
             $preflight->assertSupported($result);
-        } catch (RuntimeException $exception) {
+        } catch (Throwable $exception) {
             $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+
+        $centralSourceIpInput = $this->ask(
+            'Enter Central source IP address(es) verified by infrastructure, separated by commas'
+        );
+
+        $centralSourceIps = array_values(array_unique(array_filter(
+            array_map('trim', explode(',', (string) $centralSourceIpInput)),
+            static fn (string $address): bool => $address !== ''
+        )));
+
+        if (
+            $centralSourceIps === []
+            || count($centralSourceIps) > 16
+            || count(array_filter(
+                $centralSourceIps,
+                static fn (string $address): bool => filter_var($address, FILTER_VALIDATE_IP) === false
+            )) > 0
+        ) {
+            $this->error('One to sixteen exact Central source IP addresses verified by infrastructure are required.');
 
             return self::FAILURE;
         }
@@ -39,7 +72,8 @@ class InstallCommand extends Command
         }
 
         try {
-            $manifest = $releaseManifestClient->fetch();
+            $signedRelease = $releaseManifestClient->fetchSigned();
+            $manifest = $signedRelease['manifest'];
             $artifact = $releaseManifestClient->selectArtifact(
                 $manifest,
                 $result['architecture']
@@ -75,7 +109,7 @@ class InstallCommand extends Command
                 $artifact,
                 $stagingDirectory
             );
-        } catch (RuntimeException $exception) {
+        } catch (Throwable $exception) {
             $this->error($exception->getMessage());
             $this->warn('No Agent binary was executed, no enrollment was submitted, and no monitoring was started.');
 
@@ -90,13 +124,40 @@ class InstallCommand extends Command
             $binaryPath
         ));
 
-        $this->error(
-            'The privileged provisioning adapter and secure enrollment handoff are not yet connected.'
-        );
-        $this->warn(
-            'The verified binary remains non-executable in private staging. No enrollment or monitoring was started.'
-        );
+        try {
+            $provisioner->assertAvailable();
+        } catch (Throwable $exception) {
+            $this->error($exception->getMessage());
+            $this->warn('The verified Agent binary remains in private staging. No privileged command or enrollment was executed.');
 
-        return self::FAILURE;
+            return self::FAILURE;
+        }
+
+        try {
+            $provisioned = $provisioner->installAgent(
+                $signedRelease,
+                $binaryPath,
+                $applicationManifest,
+                $applicationTargets,
+                $result['php_fpm_identities'],
+                $centralSourceIps,
+                fn (): string => (string) $this->secret('Enter the one-time NADI enrollment token')
+            );
+        } catch (Throwable $exception) {
+            $this->error($exception->getMessage());
+            $this->warn('Do not enable monitoring manually. Verify the provisioning helper and rollback state before retrying.');
+
+            return self::FAILURE;
+        }
+
+        $this->line('<fg=green>PASS</> privileged_agent_provisioning');
+        $this->line('<fg=green>PASS</> agent_enrollment');
+        $this->info(sprintf(
+            'NADI Agent %s enrolled with %d application(s). Control Poll is enabled; monitoring remains subject to Central approval and a valid acknowledged Activation Grant.',
+            $provisioned['agent_version'],
+            $provisioned['application_count']
+        ));
+
+        return self::SUCCESS;
     }
 }

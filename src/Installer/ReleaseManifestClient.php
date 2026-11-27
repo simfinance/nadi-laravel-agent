@@ -18,6 +18,11 @@ class ReleaseManifestClient
 
     public function fetch(): array
     {
+        return $this->fetchSigned()['manifest'];
+    }
+
+    public function fetchSigned(): array
+    {
         $manifestUrl = (string) config('nadi-agent.release_manifest_url');
         $parsedUrl = parse_url($manifestUrl);
 
@@ -61,13 +66,20 @@ class ReleaseManifestClient
             throw new RuntimeException('NADI release manifest signature header is missing.');
         }
 
-        return $this->verifier->verify(
+        $signature = trim($signature);
+        $manifest = $this->verifier->verify(
             $manifestJson,
-            trim($signature),
+            $signature,
             (string) config('nadi-agent.release_public_key'),
             (string) config('nadi-agent.release_key_id'),
             (string) config('nadi-agent.release_public_key_fingerprint')
         );
+
+        return [
+            'manifest' => $manifest,
+            'manifest_json' => $manifestJson,
+            'signature' => $signature,
+        ];
     }
 
     public function selectArtifact(array $manifest, string $architecture): array

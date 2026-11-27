@@ -24,8 +24,24 @@ return [
     'agent_version' => '0.7.0',
 
     /*
-     * Installer-managed settings. The default state is deliberately disabled.
-     * These values are written by the installer after secure enrollment.
+     * Additional Laravel applications enrolled by the same server Agent.
+     * Each entry must define application_name, environment, base_url,
+     * base_path, runtime_user, and runtime_group.
+     */
+    'additional_applications' => [],
+
+    /*
+     * Optional PHP-FPM identity override for the current Laravel application.
+     * Required when the host has multiple PHP-FPM pools.
+     */
+    'runtime_user' => env('NADI_RUNTIME_USER'),
+
+    'runtime_group' => env('NADI_RUNTIME_GROUP'),
+
+    /*
+     * Runtime authorization values are loaded only from the root-owned,
+     * installer-managed per-application configuration outside the app tree.
+     * Missing or invalid managed configuration keeps the Bridge disabled.
      */
     'enabled' => false,
 
@@ -35,22 +51,10 @@ return [
         'throttle' => '60,1',
     ],
 
-    /*
-     * The source-IP allowlist must be populated from the Central source IP
-     * verified by infrastructure. An empty list denies all requests.
-     */
     'allowed_ips' => [],
 
-    /*
-     * Application credential is stored outside the webroot. The installer
-     * provisions this file and its ownership/permissions.
-     */
-    'credential_file' => storage_path('app/private/nadi/credential'),
+    'credential_file' => null,
 
-    /*
-     * Root-owned activation assertion published by the local handoff broker.
-     * Null deliberately denies activation until provisioning configures it.
-     */
     'activation_state_file' => null,
 
     'activation_application_id' => null,

@@ -86,14 +86,70 @@ class ActivationStateReaderTest extends TestCase
         );
     }
 
-    public function test_it_denies_a_state_when_the_requested_capability_is_missing(): void
+    public function test_application_metrics_grant_allows_health_metrics_and_info(): void
     {
         $state = $this->activeState();
-        $state['capabilities'] = ['database'];
+        $state['capabilities'] = ['application_metrics'];
 
-        self::assertFalse(
-            $this->validateState($state, 'health')
-        );
+        self::assertTrue($this->validateState($state, 'health'));
+        self::assertTrue($this->validateState($state, 'metrics'));
+        self::assertTrue($this->validateState($state, 'info'));
+    }
+
+    public function test_database_queue_scheduler_and_logs_map_only_to_their_own_endpoints(): void
+    {
+        $state = $this->activeState();
+        $state['capabilities'] = [
+            'database_monitoring',
+            'queue_monitoring',
+            'scheduler_monitoring',
+            'application_logs',
+        ];
+
+        self::assertTrue($this->validateState($state, 'database'));
+        self::assertTrue($this->validateState($state, 'queue'));
+        self::assertTrue($this->validateState($state, 'scheduler'));
+        self::assertTrue($this->validateState($state, 'application_logs'));
+        self::assertFalse($this->validateState($state, 'health'));
+        self::assertFalse($this->validateState($state, 'metrics'));
+        self::assertFalse($this->validateState($state, 'info'));
+    }
+
+    public function test_system_logs_capability_does_not_block_application_metrics_access(): void
+    {
+        $state = $this->activeState();
+        $state['capabilities'] = ['application_metrics', 'system_logs'];
+
+        self::assertTrue($this->validateState($state, 'health'));
+        self::assertTrue($this->validateState($state, 'metrics'));
+        self::assertFalse($this->validateState($state, 'database'));
+    }
+
+    public function test_system_logs_capability_does_not_authorize_a_bridge_endpoint(): void
+    {
+        $state = $this->activeState();
+        $state['capabilities'] = ['system_logs'];
+
+        self::assertFalse($this->validateState($state, 'health'));
+        self::assertFalse($this->validateState($state, 'metrics'));
+        self::assertFalse($this->validateState($state, 'database'));
+    }
+
+    public function test_server_metrics_grant_does_not_authorize_a_bridge_endpoint(): void
+    {
+        $state = $this->activeState();
+        $state['capabilities'] = ['server_metrics'];
+
+        self::assertFalse($this->validateState($state, 'health'));
+        self::assertFalse($this->validateState($state, 'database'));
+    }
+
+    public function test_it_denies_unknown_central_grant_capabilities(): void
+    {
+        $state = $this->activeState();
+        $state['capabilities'] = ['application_metrics', 'unknown_capability'];
+
+        self::assertFalse($this->validateState($state, 'health'));
     }
 
     private function validateState(array $state, string $capability): bool
@@ -122,7 +178,7 @@ class ActivationStateReaderTest extends TestCase
             'activation_state' => 'active',
             'monitoring_enabled' => true,
             'grant_acknowledged' => true,
-            'capabilities' => ['health', 'database'],
+            'capabilities' => ['application_metrics', 'database_monitoring'],
             'observed_at' => gmdate(DATE_ATOM, $now),
             'valid_until' => gmdate(DATE_ATOM, $now + 120),
         ];

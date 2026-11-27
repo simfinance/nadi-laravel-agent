@@ -8,10 +8,10 @@ After=network-online.target
 Type=simple
 User=nadi-agent
 Group=nadi-agent
-EnvironmentFile=-/etc/nadi-agent/agent.env
+EnvironmentFile=-/etc/nadi/agent.env
 Environment=NADI_CENTRAL_URL=https://nadi.pesantrenalirsyad.org
-Environment=NADI_STATE_DIR=/var/lib/nadi-agent
-Environment=NADI_ACTIVATION_PUBLIC_KEY=/etc/nadi-agent/keys/activation-public.pem
+Environment=NADI_STATE_DIR=/var/lib/nadi
+Environment=NADI_ACTIVATION_PUBLIC_KEY=/etc/nadi/keys/activation-public.pem
 Environment=NADI_ACTIVATION_KEY_ID=nadi-central-2026-01
 ExecStart=/opt/nadi/bin/nadi-agent
 Restart=on-failure
@@ -28,8 +28,8 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 LockPersonality=true
 RestrictSUIDSGID=true
-ReadOnlyPaths=/etc/nadi-agent/keys
-ReadWritePaths=/var/lib/nadi-agent
+ReadOnlyPaths=/etc/nadi/keys
+ReadWritePaths=/var/lib/nadi
 
 [Install]
 WantedBy=multi-user.target

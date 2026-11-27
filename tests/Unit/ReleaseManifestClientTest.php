@@ -41,6 +41,35 @@ class ReleaseManifestClientTest extends TestCase
         self::assertSame(1, $manifest['protocol_version']);
     }
 
+    public function test_it_preserves_the_exact_signed_manifest_bytes_for_the_root_helper(): void
+    {
+        [$manifestJson, $signature, $publicKeyPem, $fingerprint] = $this->signedManifest();
+
+        config([
+            'nadi-agent.release_manifest_url' => 'https://nadi.example.org/api/v1/nadi/releases/manifest',
+            'nadi-agent.release_key_id' => self::KEY_ID,
+            'nadi-agent.release_public_key' => $publicKeyPem,
+            'nadi-agent.release_public_key_fingerprint' => $fingerprint,
+        ]);
+
+        Http::fake([
+            'https://nadi.example.org/api/v1/nadi/releases/manifest' => Http::response(
+                $manifestJson,
+                200,
+                [
+                    'Content-Type' => 'application/json',
+                    'X-NADI-Manifest-Signature' => $signature,
+                ]
+            ),
+        ]);
+
+        $signedRelease = app(ReleaseManifestClient::class)->fetchSigned();
+
+        self::assertSame($manifestJson, $signedRelease['manifest_json']);
+        self::assertSame($signature, $signedRelease['signature']);
+        self::assertSame('0.7.5-dev', $signedRelease['manifest']['version']);
+    }
+
     public function test_it_maps_php_architecture_names_to_manifest_architectures(): void
     {
         $client = app(ReleaseManifestClient::class);
