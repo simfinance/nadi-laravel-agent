@@ -21,7 +21,6 @@ class ActivationStateReaderTest extends TestCase
         );
     }
 
-
     public function test_it_rejects_noncanonical_activation_state_paths(): void
     {
         $reader = new ActivationStateReader();
