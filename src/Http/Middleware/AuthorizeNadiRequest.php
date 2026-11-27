@@ -1,11 +1,11 @@
 <?php
 
-namespace Nadi\\LaravelAgent\\Http\\Middleware;
+namespace Nadi\LaravelAgent\Http\Middleware;
 
 use Closure;
-use Illuminate\\Http\\JsonResponse;
-use Illuminate\\Http\\Request;
-use Symfony\\Component\\HttpFoundation\\Response;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class AuthorizeNadiRequest
 {
@@ -174,7 +174,7 @@ class AuthorizeNadiRequest
             return null;
         }
 
-        if (! preg_match('/^Bearer\\s+(.+)$/i', trim($authorization), $matches)) {
+        if (! preg_match('/^Bearer\s+(.+)$/i', trim($authorization), $matches)) {
             return null;
         }
 
