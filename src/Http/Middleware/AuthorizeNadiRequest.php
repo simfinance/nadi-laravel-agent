@@ -1,14 +1,16 @@
 <?php
 
-namespace Nadi\LaravelAgent\Http\Middleware;
+namespace Nadi\\LaravelAgent\\Http\\Middleware;
 
 use Closure;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\\Http\\JsonResponse;
+use Illuminate\\Http\\Request;
+use Symfony\\Component\\HttpFoundation\\Response;
 
 class AuthorizeNadiRequest
 {
+    private const MAXIMUM_CREDENTIAL_FILE_SIZE = 4096;
+
     public function handle(Request $request, Closure $next): Response
     {
         if (! config('nadi-agent.enabled', false)) {
@@ -39,23 +41,106 @@ class AuthorizeNadiRequest
     {
         $credentialPath = config('nadi-agent.credential_file');
 
-        if (! is_string($credentialPath) || $credentialPath === '' || ! is_file($credentialPath)) {
+        if (
+            ! is_string($credentialPath)
+            || $credentialPath === ''
+            || ! str_starts_with($credentialPath, DIRECTORY_SEPARATOR)
+            || ! function_exists('posix_geteuid')
+            || ! $this->hasSafePathComponents($credentialPath)
+        ) {
             return null;
         }
 
-        if (! is_readable($credentialPath)) {
+        clearstatcache(true, $credentialPath);
+        $pathMetadata = lstat($credentialPath);
+
+        if (
+            ! is_array($pathMetadata)
+            || (($pathMetadata['mode'] & 0170000) !== 0100000)
+            || $pathMetadata['uid'] !== posix_geteuid()
+            || (($pathMetadata['mode'] & 07777) !== 0600)
+            || $pathMetadata['nlink'] !== 1
+            || $pathMetadata['size'] < 1
+            || $pathMetadata['size'] > self::MAXIMUM_CREDENTIAL_FILE_SIZE
+        ) {
             return null;
         }
 
-        $credential = file_get_contents($credentialPath);
+        $handle = fopen($credentialPath, 'rb');
 
-        if (! is_string($credential)) {
+        if ($handle === false) {
             return null;
         }
 
-        $credential = trim($credential);
+        try {
+            $handleMetadata = fstat($handle);
 
-        return $credential !== '' ? $credential : null;
+            if (
+                ! is_array($handleMetadata)
+                || (($handleMetadata['mode'] & 0170000) !== 0100000)
+                || $handleMetadata['uid'] !== posix_geteuid()
+                || (($handleMetadata['mode'] & 07777) !== 0600)
+                || $handleMetadata['nlink'] !== 1
+                || $handleMetadata['dev'] !== $pathMetadata['dev']
+                || $handleMetadata['ino'] !== $pathMetadata['ino']
+                || $handleMetadata['size'] < 1
+                || $handleMetadata['size'] > self::MAXIMUM_CREDENTIAL_FILE_SIZE
+            ) {
+                return null;
+            }
+
+            $credential = stream_get_contents(
+                $handle,
+                self::MAXIMUM_CREDENTIAL_FILE_SIZE + 1
+            );
+
+            if (
+                ! is_string($credential)
+                || $credential === ''
+                || strlen($credential) > self::MAXIMUM_CREDENTIAL_FILE_SIZE
+            ) {
+                return null;
+            }
+
+            return $credential;
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    private function hasSafePathComponents(string $path): bool
+    {
+        $segments = array_values(array_filter(
+            explode(DIRECTORY_SEPARATOR, $path),
+            static fn (string $segment): bool => $segment !== ''
+        ));
+
+        $currentPath = DIRECTORY_SEPARATOR;
+
+        foreach ($segments as $index => $segment) {
+            $currentPath = rtrim($currentPath, DIRECTORY_SEPARATOR)
+                . DIRECTORY_SEPARATOR
+                . $segment;
+
+            clearstatcache(true, $currentPath);
+            $metadata = lstat($currentPath);
+
+            if (! is_array($metadata) || (($metadata['mode'] & 0170000) === 0120000)) {
+                return false;
+            }
+
+            $isFinalComponent = $index === count($segments) - 1;
+
+            if ($isFinalComponent) {
+                if (($metadata['mode'] & 0170000) !== 0100000) {
+                    return false;
+                }
+            } elseif (($metadata['mode'] & 0170000) !== 0040000) {
+                return false;
+            }
+        }
+
+        return $segments !== [];
     }
 
     private function isAllowedSourceIp(Request $request): bool
@@ -89,7 +174,7 @@ class AuthorizeNadiRequest
             return null;
         }
 
-        if (! preg_match('/^Bearer\s+(.+)$/i', trim($authorization), $matches)) {
+        if (! preg_match('/^Bearer\\s+(.+)$/i', trim($authorization), $matches)) {
             return null;
         }
 
