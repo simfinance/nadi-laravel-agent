@@ -8,23 +8,34 @@ use RuntimeException;
 
 class PrivilegedProvisionerTest extends TestCase
 {
-    public function test_root_invocation_does_not_require_sudo(): void
+    public function test_root_installer_is_rejected_before_helper_invocation(): void
     {
         $provisioner = new PrivilegedProvisioner(
             '/usr/bin/env',
-            '/nonexistent/sudo',
+            '/usr/bin/sudo',
+            0
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Do not run php artisan nadi:install as root');
+
+        $provisioner->assertAvailable();
+    }
+
+    public function test_root_invocation_command_is_rejected(): void
+    {
+        $provisioner = new PrivilegedProvisioner(
+            '/usr/bin/env',
+            '/usr/bin/sudo',
             0
         );
 
         $method = new \ReflectionMethod($provisioner, 'invocationCommand');
 
-        self::assertSame(
-            [
-                '/usr/bin/env',
-                '--request-stdin',
-            ],
-            $method->invoke($provisioner)
-        );
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Do not run php artisan nadi:install as root');
+
+        $method->invoke($provisioner);
     }
 
     public function test_non_root_invocation_uses_non_interactive_sudo(): void

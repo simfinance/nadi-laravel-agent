@@ -26,10 +26,19 @@ class PrivilegedProvisioner
 
     public function assertAvailable(): void
     {
+        $this->assertDeploymentUser();
         $this->assertTrustedExecutable($this->helperPath, 'NADI provisioning helper');
+        $this->assertTrustedExecutable($this->sudoPath, 'sudo');
+    }
 
-        if (! $this->isRunningAsRoot()) {
-            $this->assertTrustedExecutable($this->sudoPath, 'sudo');
+    private function assertDeploymentUser(): void
+    {
+        if ($this->effectiveUid === null && ! function_exists('posix_geteuid')) {
+            throw new RuntimeException('The POSIX extension is required to verify the NADI installer user. Run Artisan as a non-root deployment user.');
+        }
+
+        if ($this->isRunningAsRoot()) {
+            throw new RuntimeException('Do not run php artisan nadi:install as root. Run it as the application deployment user with the exact NADI helper sudo authorization.');
         }
     }
 
@@ -46,20 +55,14 @@ class PrivilegedProvisioner
 
     private function invocationCommand(): array
     {
-        $helperCommand = [
-            $this->helperPath,
-            '--request-stdin',
-        ];
-
-        if ($this->isRunningAsRoot()) {
-            return $helperCommand;
-        }
+        $this->assertDeploymentUser();
 
         return [
             $this->sudoPath,
             '-n',
             '--',
-            ...$helperCommand,
+            $this->helperPath,
+            '--request-stdin',
         ];
     }
 
