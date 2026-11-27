@@ -110,10 +110,19 @@ class AuthorizeNadiRequest
 
     private function hasSafePathComponents(string $path): bool
     {
-        $segments = array_values(array_filter(
-            explode(DIRECTORY_SEPARATOR, $path),
-            static fn (string $segment): bool => $segment !== ''
-        ));
+        $rawSegments = explode(DIRECTORY_SEPARATOR, $path);
+
+        if ($rawSegments[0] !== '' || count($rawSegments) < 2) {
+            return false;
+        }
+
+        $segments = array_slice($rawSegments, 1);
+
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return false;
+            }
+        }
 
         $currentPath = DIRECTORY_SEPARATOR;
 

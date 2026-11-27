@@ -21,6 +21,20 @@ class ActivationStateReaderTest extends TestCase
         );
     }
 
+
+    public function test_it_rejects_noncanonical_activation_state_paths(): void
+    {
+        $reader = new ActivationStateReader();
+        $method = new ReflectionMethod($reader, 'assertSafePath');
+
+        $this->expectException(\\RuntimeException::class);
+
+        $method->invoke(
+            $reader,
+            '/run/nadi/bridge-state/../bridge-state/application.json'
+        );
+    }
+
     public function test_it_denies_unknown_capabilities(): void
     {
         self::assertFalse(
