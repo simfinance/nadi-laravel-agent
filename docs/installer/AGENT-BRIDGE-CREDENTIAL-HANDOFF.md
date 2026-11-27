@@ -128,3 +128,18 @@ Required tests include:
 This protocol requires coordinated implementation in the Go Agent and the separately installed privileged broker. The Laravel Bridge repository alone cannot safely complete the producer, peer-authentication, and root-owned destination mapping.
 
 The Agent producer and root-owned broker source, Bridge-side credential authorization, and activation-state checks are implemented on the current feature branches. The privileged lifecycle now provisions the broker mapping after confirmed enrollment. Remaining integration gates include trusted helper packaging/installation, final per-application Bridge environment identity provisioning, root/non-root and systemd tests, credential rotation/revocation validation, and full end-to-end tests. Until those gates pass, the customer installer must remain fail-closed and must not claim production-ready secure enrollment.
+
+
+## Installer-managed Bridge application configuration — 27 November 2026
+
+ADR-0003 defines the external per-application configuration contract. The trusted Agent helper writes one root-owned JSON file at:
+
+`/var/lib/nadi-bridge/config/<sha256(canonical-application-base-path)>.json`
+
+The Laravel Service Provider derives this exact filename from the canonical application base path and reads it without requiring changes to the application's `.env`, Laravel config, PHP-FPM pool, or Nginx configuration.
+
+The file contains only the Central-issued application ID/key, exact source-IP allowlist, enabled state, and fixed credential/activation-state paths. It contains no credential or grant payload. Ownership is `root:<application PHP-FPM primary GID>`, mode `0640`; the config directory is `root:root`, mode `0711`. PHP-FPM primary GIDs must be unique across applications on the same Agent so one runtime cannot read another application's config.
+
+The installer prompts for exact Central source IP addresses and requires the operator to confirm they were verified by infrastructure against the actual source/NAT address. It accepts exact IPv4/IPv6 literals only; it does not infer addresses from DNS or the Central URL. Missing or invalid input stops before enrollment is submitted.
+
+Missing, unreadable, malformed, mismatched, symlinked, or incorrectly owned configuration keeps the Bridge disabled. Credential authorization, source-IP allowlist, and the fresh acknowledged Activation Gate remain independent checks.

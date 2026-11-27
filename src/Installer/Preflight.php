@@ -24,6 +24,7 @@ class Preflight
             'systemd' => is_executable('/usr/bin/systemctl') || is_executable('/bin/systemctl'),
             'sodium' => extension_loaded('sodium'),
             'posix' => extension_loaded('posix'),
+            'installer_non_root' => function_exists('posix_geteuid') && posix_geteuid() !== 0,
             'php_fpm_runtime_identities' => $phpFpmIdentities !== null,
         ];
 
@@ -286,6 +287,12 @@ class Preflight
 
     public function assertSupported(array $result): void
     {
+        if (($result['checks']['installer_non_root'] ?? false) !== true) {
+            throw new RuntimeException(
+                'Do not run php artisan nadi:install as root. Run it as the application deployment user with the exact NADI helper sudo authorization.'
+            );
+        }
+
         if (! $result['passed']) {
             throw new RuntimeException(
                 'NADI preflight failed: ' . implode(', ', $result['failed'])

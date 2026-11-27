@@ -50,6 +50,30 @@ class PreflightTest extends TestCase
         parent::tearDown();
     }
 
+
+    public function test_it_rejects_root_as_the_artisan_installer_principal(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Do not run php artisan nadi:install as root');
+
+        (new Preflight())->assertSupported([
+            'checks' => [
+                'installer_non_root' => false,
+            ],
+            'passed' => false,
+            'failed' => ['installer_non_root'],
+            'architecture' => 'x86_64',
+            'php_fpm_identities' => [
+                [
+                    'user' => 'www-data',
+                    'group' => 'www-data',
+                    'uid' => 33,
+                    'gid' => 33,
+                ],
+            ],
+        ]);
+    }
+
     public function test_it_detects_a_single_php_fpm_runtime_identity(): void
     {
         if (posix_getpwnam('www-data') === false || posix_getgrnam('www-data') === false) {

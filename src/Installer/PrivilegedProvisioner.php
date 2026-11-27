@@ -19,14 +19,51 @@ class PrivilegedProvisioner
 
     public function __construct(
         private readonly string $helperPath = self::HELPER_PATH,
-        private readonly string $sudoPath = self::SUDO_PATH
+        private readonly string $sudoPath = self::SUDO_PATH,
+        private readonly ?int $effectiveUid = null
     ) {
     }
 
     public function assertAvailable(): void
     {
+        $this->assertDeploymentUser();
         $this->assertTrustedExecutable($this->helperPath, 'NADI provisioning helper');
         $this->assertTrustedExecutable($this->sudoPath, 'sudo');
+    }
+
+    private function assertDeploymentUser(): void
+    {
+        if ($this->effectiveUid === null && ! function_exists('posix_geteuid')) {
+            throw new RuntimeException('The POSIX extension is required to verify the NADI installer user. Run Artisan as a non-root deployment user.');
+        }
+
+        if ($this->isRunningAsRoot()) {
+            throw new RuntimeException('Do not run php artisan nadi:install as root. Run it as the application deployment user with the exact NADI helper sudo authorization.');
+        }
+    }
+
+    private function isRunningAsRoot(): bool
+    {
+        $uid = $this->effectiveUid;
+
+        if ($uid === null && function_exists('posix_geteuid')) {
+            $uid = posix_geteuid();
+        }
+
+        return $uid === 0;
+    }
+
+    private function invocationCommand(): array
+    {
+        $this->assertDeploymentUser();
+
+        return [
+            $this->sudoPath,
+            '-n',
+            '--',
+            $this->helperPath,
+            '--request-stdin',
+        ];
     }
 
     public function installAgent(
@@ -35,6 +72,7 @@ class PrivilegedProvisioner
         array $applicationManifest,
         array $applicationTargets,
         array $runtimeIdentities,
+        array $centralSourceIps,
         callable $enrollmentTokenProvider
     ): array {
         $this->assertAvailable();
@@ -51,6 +89,8 @@ class PrivilegedProvisioner
             throw new RuntimeException('Verified signed release material is incomplete.');
         }
 
+        $this->assertCentralSourceIps($centralSourceIps);
+
         $manifestApplications = $applicationManifest['applications'] ?? null;
 
         if (
@@ -66,6 +106,7 @@ class PrivilegedProvisioner
 
         $identityByKey = [];
         $seenUIDs = [];
+        $seenGIDs = [];
 
         foreach ($runtimeIdentities as $identity) {
             if (
@@ -81,12 +122,17 @@ class PrivilegedProvisioner
 
             $key = $identity['application_key'];
 
-            if (isset($identityByKey[$key]) || isset($seenUIDs[$identity['uid']])) {
-                throw new RuntimeException('Application runtime identities must have unique application keys and UIDs.');
+            if (
+                isset($identityByKey[$key])
+                || isset($seenUIDs[$identity['uid']])
+                || isset($seenGIDs[$identity['gid']])
+            ) {
+                throw new RuntimeException('Application runtime identities must have unique application keys, UIDs, and GIDs for per-application configuration isolation.');
             }
 
             $identityByKey[$key] = $identity;
             $seenUIDs[$identity['uid']] = true;
+            $seenGIDs[$identity['gid']] = true;
         }
 
         $manifestByKey = [];
@@ -203,6 +249,7 @@ class PrivilegedProvisioner
                 'operation' => 'install_agent',
                 'release' => $releasePayload,
                 'applications' => $applicationRequests,
+                'central_source_ips' => $centralSourceIps,
             ]);
 
             $freshInstall = $installed['phase'] === 'installed'
@@ -276,6 +323,27 @@ class PrivilegedProvisioner
         }
     }
 
+    private function assertCentralSourceIps(array $addresses): void
+    {
+        if (! array_is_list($addresses) || count($addresses) < 1 || count($addresses) > 16) {
+            throw new RuntimeException('One to sixteen infrastructure-verified Central source IP addresses are required.');
+        }
+
+        $seen = [];
+
+        foreach ($addresses as $address) {
+            if (
+                ! is_string($address)
+                || filter_var($address, FILTER_VALIDATE_IP) === false
+                || isset($seen[$address])
+            ) {
+                throw new RuntimeException('Central source-IP allowlist must contain unique exact IPv4 or IPv6 addresses.');
+            }
+
+            $seen[$address] = true;
+        }
+    }
+
     private function invokeOperation(array $request): array
     {
         try {
@@ -291,13 +359,7 @@ class PrivilegedProvisioner
             throw new RuntimeException('Provisioning request exceeds the allowed size.');
         }
 
-        $process = new Process([
-            $this->sudoPath,
-            '-n',
-            '--',
-            $this->helperPath,
-            '--request-stdin',
-        ]);
+        $process = new Process($this->invocationCommand());
 
         $stdin = $requestBody . "\n";
         $process->setInput($stdin);

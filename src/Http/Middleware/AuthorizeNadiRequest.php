@@ -52,6 +52,7 @@ class AuthorizeNadiRequest
         }
 
         clearstatcache(true, $credentialPath);
+
         $pathMetadata = @lstat($credentialPath);
 
         if (
@@ -183,7 +184,7 @@ class AuthorizeNadiRequest
             return null;
         }
 
-        if (! preg_match('/^Bearer\s+(.+)$/i', trim($authorization), $matches)) {
+        if (! preg_match('/^Bearer\\s+(.+)$/i', trim($authorization), $matches)) {
             return null;
         }
 

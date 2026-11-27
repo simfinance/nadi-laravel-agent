@@ -26,7 +26,7 @@ class ActivationStateReaderTest extends TestCase
         $reader = new ActivationStateReader();
         $method = new ReflectionMethod($reader, 'assertSafePath');
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\\RuntimeException::class);
 
         $method->invoke(
             $reader,

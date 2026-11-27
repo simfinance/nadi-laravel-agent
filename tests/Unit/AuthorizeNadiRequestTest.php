@@ -1,11 +1,11 @@
 <?php
 
-namespace Nadi\LaravelAgent\Tests\Unit;
+namespace Nadi\\LaravelAgent\\Tests\\Unit;
 
-use Illuminate\Http\Request;
-use Nadi\LaravelAgent\Http\Middleware\AuthorizeNadiRequest;
-use Orchestra\Testbench\TestCase;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\\Http\\Request;
+use Nadi\\LaravelAgent\\Http\\Middleware\\AuthorizeNadiRequest;
+use Orchestra\\Testbench\\TestCase;
+use Symfony\\Component\\HttpFoundation\\Response;
 
 class AuthorizeNadiRequestTest extends TestCase
 {

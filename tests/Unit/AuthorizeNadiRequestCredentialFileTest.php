@@ -72,7 +72,6 @@ class AuthorizeNadiRequestCredentialFileTest extends TestCase
         self::assertNull($this->readCredential());
     }
 
-
     public function test_it_rejects_a_path_with_parent_directory_components(): void
     {
         $path = $this->createCredentialFile('nadi-credential-test-value');

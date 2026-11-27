@@ -39,8 +39,9 @@ return [
     'runtime_group' => env('NADI_RUNTIME_GROUP'),
 
     /*
-     * Installer-managed settings. The default state is deliberately disabled.
-     * These values are written by the installer after secure enrollment.
+     * Runtime authorization values are loaded only from the root-owned,
+     * installer-managed per-application configuration outside the app tree.
+     * Missing or invalid managed configuration keeps the Bridge disabled.
      */
     'enabled' => false,
 
@@ -50,23 +51,11 @@ return [
         'throttle' => '60,1',
     ],
 
-    /*
-     * The source-IP allowlist must be populated from the Central source IP
-     * verified by infrastructure. An empty list denies all requests.
-     */
     'allowed_ips' => [],
 
-    /*
-     * Application credential is stored outside the webroot. The installer
-     * provisions this file and its ownership/permissions.
-     */
-    'credential_file' => env('NADI_CREDENTIAL_FILE'),
+    'credential_file' => null,
 
-    /*
-     * Root-owned activation assertion published by the local handoff broker.
-     * Null deliberately denies activation until provisioning configures it.
-     */
-    'activation_state_file' => env('NADI_ACTIVATION_STATE_FILE'),
+    'activation_state_file' => null,
 
     'activation_application_id' => null,
 
