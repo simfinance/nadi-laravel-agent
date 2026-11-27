@@ -53,7 +53,7 @@ class PreflightTest extends TestCase
 
     public function test_it_rejects_root_as_the_artisan_installer_principal(): void
     {
-        $this->expectException(\\RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Do not run php artisan nadi:install as root');
 
         (new Preflight())->assertSupported([
