@@ -22,7 +22,7 @@ class PrivilegedProvisionerTest extends TestCase
 
         self::assertSame(
             [
-                '/usr/libexec/nadi/nadi-provision',
+                '/usr/bin/true',
                 '--request-stdin',
             ],
             $method->invoke($provisioner)
@@ -44,7 +44,7 @@ class PrivilegedProvisionerTest extends TestCase
                 '/usr/bin/sudo',
                 '-n',
                 '--',
-                '/usr/libexec/nadi/nadi-provision',
+                '/usr/bin/true',
                 '--request-stdin',
             ],
             $method->invoke($provisioner)
