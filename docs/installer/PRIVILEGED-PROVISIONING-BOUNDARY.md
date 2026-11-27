@@ -14,13 +14,18 @@ System provisioning is performed only by a separately installed, root-owned help
 
 The helper is installed and maintained by the server administrator or a trusted OS provisioning channel. The Composer package must not create, replace, or bootstrap this helper through sudo.
 
-The administrator must create a dedicated sudoers entry for the exact Unix account that runs `php artisan nadi:install`. Example template (replace `<installer-user>` with the verified account; do not copy the placeholder literally):
+The installer may be invoked in either of these approved ways:
+
+1. Directly by `root`. In this case, the Bridge invokes the fixed helper directly and does not require `sudo`.
+2. By a verified deployment/administrator account with sudo authorization. In this case, the Bridge invokes the helper through `/usr/bin/sudo -n` and requires a narrowly scoped, non-interactive sudoers authorization for the exact helper command.
+
+For the non-root case, the server administrator must create a sudoers entry for the exact Unix account that runs `php artisan nadi:install`. Example template (replace `<installer-user>` with the verified account; do not copy the placeholder literally):
 
 ```sudoers
 <installer-user> ALL=(root) NOPASSWD: /usr/libexec/nadi/nadi-provision --request-stdin
 ```
 
-The sudoers file must be root-owned, mode `0440`, and validated with `visudo -cf`. Do not grant a wildcard, shell, general root command, or arbitrary helper argument. The Bridge adapter uses `sudo -n`; if this exact authorization is absent, installation stops without trying an interactive sudo prompt.
+The sudoers file must be root-owned, mode `0440`, and validated with `visudo -cf`. Do not grant a wildcard, shell, general root command, or arbitrary helper argument. The package never requests, stores, or forwards the sudo password. If the exact non-interactive authorization is absent, installation stops before provisioning or enrollment.
 
 The helper must be owned by root, must not be writable by group or other users, and must not resolve through a symbolic link. The sudoers policy must authorize only this exact helper invocation, without a shell, wildcard command, or arbitrary executable argument.
 
