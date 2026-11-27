@@ -19,14 +19,48 @@ class PrivilegedProvisioner
 
     public function __construct(
         private readonly string $helperPath = self::HELPER_PATH,
-        private readonly string $sudoPath = self::SUDO_PATH
+        private readonly string $sudoPath = self::SUDO_PATH,
+        private readonly ?int $effectiveUid = null
     ) {
     }
 
     public function assertAvailable(): void
     {
         $this->assertTrustedExecutable($this->helperPath, 'NADI provisioning helper');
-        $this->assertTrustedExecutable($this->sudoPath, 'sudo');
+
+        if (! $this->isRunningAsRoot()) {
+            $this->assertTrustedExecutable($this->sudoPath, 'sudo');
+        }
+    }
+
+    private function isRunningAsRoot(): bool
+    {
+        $uid = $this->effectiveUid;
+
+        if ($uid === null && function_exists('posix_geteuid')) {
+            $uid = posix_geteuid();
+        }
+
+        return $uid === 0;
+    }
+
+    private function invocationCommand(): array
+    {
+        $helperCommand = [
+            $this->helperPath,
+            '--request-stdin',
+        ];
+
+        if ($this->isRunningAsRoot()) {
+            return $helperCommand;
+        }
+
+        return [
+            $this->sudoPath,
+            '-n',
+            '--',
+            ...$helperCommand,
+        ];
     }
 
     public function installAgent(
@@ -322,13 +356,7 @@ class PrivilegedProvisioner
             throw new RuntimeException('Provisioning request exceeds the allowed size.');
         }
 
-        $process = new Process([
-            $this->sudoPath,
-            '-n',
-            '--',
-            $this->helperPath,
-            '--request-stdin',
-        ]);
+        $process = new Process($this->invocationCommand());
 
         $stdin = $requestBody . "\n";
         $process->setInput($stdin);
