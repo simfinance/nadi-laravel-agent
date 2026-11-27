@@ -35,6 +35,7 @@ class PrivilegedProvisioner
         array $applicationManifest,
         array $applicationTargets,
         array $runtimeIdentities,
+        array $centralSourceIps,
         callable $enrollmentTokenProvider
     ): array {
         $this->assertAvailable();
@@ -51,6 +52,8 @@ class PrivilegedProvisioner
             throw new RuntimeException('Verified signed release material is incomplete.');
         }
 
+        $this->assertCentralSourceIps($centralSourceIps);
+
         $manifestApplications = $applicationManifest['applications'] ?? null;
 
         if (
@@ -66,6 +69,7 @@ class PrivilegedProvisioner
 
         $identityByKey = [];
         $seenUIDs = [];
+        $seenGIDs = [];
 
         foreach ($runtimeIdentities as $identity) {
             if (
@@ -81,12 +85,17 @@ class PrivilegedProvisioner
 
             $key = $identity['application_key'];
 
-            if (isset($identityByKey[$key]) || isset($seenUIDs[$identity['uid']])) {
-                throw new RuntimeException('Application runtime identities must have unique application keys and UIDs.');
+            if (
+                isset($identityByKey[$key])
+                || isset($seenUIDs[$identity['uid']])
+                || isset($seenGIDs[$identity['gid']])
+            ) {
+                throw new RuntimeException('Application runtime identities must have unique application keys, UIDs, and GIDs for per-application configuration isolation.');
             }
 
             $identityByKey[$key] = $identity;
             $seenUIDs[$identity['uid']] = true;
+            $seenGIDs[$identity['gid']] = true;
         }
 
         $manifestByKey = [];
@@ -203,6 +212,7 @@ class PrivilegedProvisioner
                 'operation' => 'install_agent',
                 'release' => $releasePayload,
                 'applications' => $applicationRequests,
+                'central_source_ips' => $centralSourceIps,
             ]);
 
             $freshInstall = $installed['phase'] === 'installed'
@@ -273,6 +283,27 @@ class PrivilegedProvisioner
             }
 
             unset($enrollmentPayload, $enrollmentManifestBase64, $releasePayload);
+        }
+    }
+
+    private function assertCentralSourceIps(array $addresses): void
+    {
+        if (! array_is_list($addresses) || count($addresses) < 1 || count($addresses) > 16) {
+            throw new RuntimeException('One to sixteen infrastructure-verified Central source IP addresses are required.');
+        }
+
+        $seen = [];
+
+        foreach ($addresses as $address) {
+            if (
+                ! is_string($address)
+                || filter_var($address, FILTER_VALIDATE_IP) === false
+                || isset($seen[$address])
+            ) {
+                throw new RuntimeException('Central source-IP allowlist must contain unique exact IPv4 or IPv6 addresses.');
+            }
+
+            $seen[$address] = true;
         }
     }
 

@@ -146,3 +146,10 @@ Accepted resolution: use three fixed operations under the same exact `--request-
 The project owner approved this contract clarification on 2026-11-24. The Agent helper and Bridge adapter are being updated to implement it consistently. The helper remains unavailable to production until trusted packaging, rollback, and integration validation are complete.
 
 The accepted operation contract is recorded in [Agent ADR-0002](https://github.com/simfinance/nadi-agent/blob/feature/bridge-activation-publisher/docs/adr/ADR-0002-provisioning-helper-operation-lifecycle.md). Its implementation remains subject to release validation.
+
+
+## Per-application Bridge configuration and source-IP allowlist — 27 November 2026
+
+The accepted [ADR-0003](https://github.com/simfinance/nadi-agent/blob/feature/bridge-activation-publisher/docs/adr/ADR-0003-installer-managed-bridge-configuration.md) adds one required field to the fixed `install_agent` request: `central_source_ips`. The Artisan installer prompts for one to sixteen exact source IP addresses and requires the operator to confirm that infrastructure has verified Central's actual source/NAT address. The helper validates literal IPv4/IPv6 values and rejects CIDR ranges, duplicates, and missing values before provisioning.
+
+After Central enrollment is confirmed, the helper writes one deterministic root-owned Bridge configuration file per application under `/var/lib/nadi-bridge/config`. It is outside the Laravel application tree and is journaled with the other enrollment/RESTORE resources. The Service Provider reads only the file matching its canonical application base path and effective PHP-FPM GID. The installer fails closed when PHP-FPM primary GIDs are shared across applications.

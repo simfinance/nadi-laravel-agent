@@ -41,6 +41,28 @@ class InstallCommand extends Command
             return self::FAILURE;
         }
 
+        $centralSourceIpInput = $this->ask(
+            'Enter Central source IP address(es) verified by infrastructure, separated by commas'
+        );
+
+        $centralSourceIps = array_values(array_unique(array_filter(
+            array_map('trim', explode(',', (string) $centralSourceIpInput)),
+            static fn (string $address): bool => $address !== ''
+        )));
+
+        if (
+            $centralSourceIps === []
+            || count($centralSourceIps) > 16
+            || count(array_filter(
+                $centralSourceIps,
+                static fn (string $address): bool => filter_var($address, FILTER_VALIDATE_IP) === false
+            )) > 0
+        ) {
+            $this->error('One to sixteen exact Central source IP addresses verified by infrastructure are required.');
+
+            return self::FAILURE;
+        }
+
         foreach ($result['checks'] as $name => $passed) {
             $this->line(sprintf(
                 '%s %s',
@@ -118,6 +140,7 @@ class InstallCommand extends Command
                 $applicationManifest,
                 $applicationTargets,
                 $result['php_fpm_identities'],
+                $centralSourceIps,
                 fn (): string => (string) $this->secret('Enter the one-time NADI enrollment token')
             );
         } catch (Throwable $exception) {
