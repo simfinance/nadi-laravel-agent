@@ -11,7 +11,7 @@ class PrivilegedProvisionerTest extends TestCase
     public function test_root_invocation_does_not_require_sudo(): void
     {
         $provisioner = new PrivilegedProvisioner(
-            '/usr/bin/true',
+            '/usr/bin/env',
             '/nonexistent/sudo',
             0
         );
@@ -22,7 +22,7 @@ class PrivilegedProvisionerTest extends TestCase
 
         self::assertSame(
             [
-                '/usr/bin/true',
+                '/usr/bin/env',
                 '--request-stdin',
             ],
             $method->invoke($provisioner)
@@ -32,7 +32,7 @@ class PrivilegedProvisionerTest extends TestCase
     public function test_non_root_invocation_uses_non_interactive_sudo(): void
     {
         $provisioner = new PrivilegedProvisioner(
-            '/usr/bin/true',
+            '/usr/bin/env',
             '/usr/bin/sudo',
             1000
         );
@@ -44,7 +44,7 @@ class PrivilegedProvisionerTest extends TestCase
                 '/usr/bin/sudo',
                 '-n',
                 '--',
-                '/usr/bin/true',
+                '/usr/bin/env',
                 '--request-stdin',
             ],
             $method->invoke($provisioner)
@@ -54,7 +54,7 @@ class PrivilegedProvisionerTest extends TestCase
     public function test_non_root_installation_requires_a_trusted_sudo_executable(): void
     {
         $provisioner = new PrivilegedProvisioner(
-            '/usr/bin/true',
+            '/usr/bin/env',
             '/nonexistent/sudo',
             1000
         );
