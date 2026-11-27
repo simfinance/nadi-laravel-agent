@@ -138,10 +138,19 @@ class ActivationStateReader
             throw new \RuntimeException('Activation state path must be absolute.');
         }
 
-        $segments = array_values(array_filter(
-            explode(DIRECTORY_SEPARATOR, $path),
-            static fn (string $segment): bool => $segment !== ''
-        ));
+        $rawSegments = explode(DIRECTORY_SEPARATOR, $path);
+
+        if ($rawSegments[0] !== '' || count($rawSegments) < 2) {
+            throw new \RuntimeException('Activation state path is not canonical.');
+        }
+
+        $segments = array_slice($rawSegments, 1);
+
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                throw new \RuntimeException('Activation state path is not canonical.');
+            }
+        }
 
         $currentPath = DIRECTORY_SEPARATOR;
 
