@@ -52,7 +52,7 @@ class AuthorizeNadiRequest
         }
 
         clearstatcache(true, $credentialPath);
-        $pathMetadata = lstat($credentialPath);
+        $pathMetadata = @lstat($credentialPath);
 
         if (
             ! is_array($pathMetadata)
@@ -66,7 +66,7 @@ class AuthorizeNadiRequest
             return null;
         }
 
-        $handle = fopen($credentialPath, 'rb');
+        $handle = @fopen($credentialPath, 'rb');
 
         if ($handle === false) {
             return null;
@@ -123,7 +123,7 @@ class AuthorizeNadiRequest
                 . $segment;
 
             clearstatcache(true, $currentPath);
-            $metadata = lstat($currentPath);
+            $metadata = @lstat($currentPath);
 
             if (! is_array($metadata) || (($metadata['mode'] & 0170000) === 0120000)) {
                 return false;
