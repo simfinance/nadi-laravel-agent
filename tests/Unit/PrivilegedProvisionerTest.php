@@ -8,6 +8,63 @@ use RuntimeException;
 
 class PrivilegedProvisionerTest extends TestCase
 {
+    public function test_root_invocation_does_not_require_sudo(): void
+    {
+        $provisioner = new PrivilegedProvisioner(
+            '/usr/bin/true',
+            '/nonexistent/sudo',
+            0
+        );
+
+        $provisioner->assertAvailable();
+
+        $method = new \ReflectionMethod($provisioner, 'invocationCommand');
+
+        self::assertSame(
+            [
+                '/usr/libexec/nadi/nadi-provision',
+                '--request-stdin',
+            ],
+            $method->invoke($provisioner)
+        );
+    }
+
+    public function test_non_root_invocation_uses_non_interactive_sudo(): void
+    {
+        $provisioner = new PrivilegedProvisioner(
+            '/usr/bin/true',
+            '/usr/bin/sudo',
+            1000
+        );
+
+        $method = new \ReflectionMethod($provisioner, 'invocationCommand');
+
+        self::assertSame(
+            [
+                '/usr/bin/sudo',
+                '-n',
+                '--',
+                '/usr/libexec/nadi/nadi-provision',
+                '--request-stdin',
+            ],
+            $method->invoke($provisioner)
+        );
+    }
+
+    public function test_non_root_installation_requires_a_trusted_sudo_executable(): void
+    {
+        $provisioner = new PrivilegedProvisioner(
+            '/usr/bin/true',
+            '/nonexistent/sudo',
+            1000
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('sudo');
+
+        $provisioner->assertAvailable();
+    }
+
     public function test_it_fails_closed_when_the_root_owned_helper_is_not_installed(): void
     {
         $provisioner = new PrivilegedProvisioner('/nonexistent/nadi-provision');
